@@ -1,0 +1,100 @@
+Team Charter — LIMO Architects
+**CS3520 — Computer Organisation and Architecture**  
+**Team name:** Architects  
+**Repository:** [saintchigos/limo-architects](https://github.com/saintchigos/limo-architects)  
+**Academic Year:** 2026/2027 · Semester A
+
+Members
+
+| # | Full name | Student number | GitHub username |
+|---|-----------|---------------|----------------|
+| 1 | Mokheseng Mohasoa| 202404140 | Dvago432 |
+| 2 | Tiisetso Joseph Masemene | 202409095 | Crippy-mars |
+| 3 | Tinotenda Knowledge Chigowe | 202405455 | saintchigos |
+| 4 | Lebohang Lithebe | | |
+| 5 | Katleho Motsheare | | katlehomotseare1-blip|
+| 6 | Motloheloa Mokhele | 202404281 | mokhelefab|
+| 7 | | | |
+
+Weekly Roles
+
+Roles rotate every week. Each member takes each role at least once across the project.
+
+| Role | Responsibility |
+|------|---------------|
+| **ISA Architect** | Owns the ISA spec; handles encoding questions and design decisions |
+| **Assembler Lead** | Leads development and testing of the assembler component |
+| **Pipeline Lead** | Leads implementation of the five pipeline stages |
+| **Hazard-Unit Lead** | Leads forwarding, stall, and flush logic |
+| **Interface Lead** | Leads the UI — datapath view, control view, freshman mode |
+| **Test Lead** | Coordinates test programs, unit tests, and Ripes cross-checks |
+| **Scrum & Release Lead** | Runs the sprint, manages the GitHub board, tags releases, writes the sprint note |
+
+Role rotation schedule
+
+| Week | Milestone | ISA Arch | Assembler | Pipeline | Hazard | Interface | Test | Scrum/Release |
+|------|-----------|----------|-----------|----------|--------|-----------|------|---------------|
+| W7 (M1) | ISA spec | Mokheseng | Tinotenda | Katleho | Tiisetso | Lebohang | Mokhele | Mokheseng |
+| W8 (M2) | Assembler + design | Tinotenda | Katleho | Tiisetso | Lebohang | Mokhele | Mokheseng | Tinotenda |
+| W9 (M3) | Pipeline core | Katleho | Tiisetso | Lebohang | Mokhele | Mokheseng | Tinotenda | Katleho |
+| W10 (M4) | Hazards + viz | Tiisetso | Lebohang | Mokhele | Mokheseng | Tinotenda | Katleho | Tiisetso |
+| W11 (M5) | Final | Lebohang | Mokhele | Mokheseng | Tinotenda | Katleho | Tiisetso | Mokhele |
+
+Ways of Working
+
+Git workflow
+- `main` is protected — no direct pushes
+- All work arrives via feature branches and pull requests
+- Every PR must be reviewed and approved by at least one other member before merging
+- Branch naming: `feature/<short-description>` or `fix/<short-description>`
+- Each milestone is a tagged release: `m1`, `m2`, `m3`, `m4`, `v1.0`
+
+GitHub board
+- Every task is an Issue on the GitHub Projects board
+- Every issue has exactly one owner and a milestone label
+- Issues are moved across columns: **Backlog → In Progress → In Review → Done**
+- Scrum/Release Lead is responsible for keeping the board current each week
+
+Commits
+- Every member commits meaningful work every week from their own GitHub account
+- Commit messages are clear and specific: `Add forwarding unit for EX/MEM hazard` not `update stuff`
+- Commits and PRs are individual evidence — you will be asked to explain yours at defences
+
+Weekly sprint
+- Sprint planning: start of each week, Scrum Lead assigns issues
+- Sprint note submitted with each milestone: what was done, what was not done, what is next, who did what (one page)
+- Milestone submission: release-tag link + milestone PDF + sprint note, on Google Classroom by Sunday 23:59
+
+Communication
+
+| Channel | Purpose |
+|---------|---------|
+| *(e.g. WhatsApp group)* | Day-to-day coordination |
+| GitHub Issues | Task tracking and technical discussion |
+| GitHub PR comments | Code review |
+| *(e.g. weekly meeting time/place)* | Sprint planning and check-ins |
+
+Responsibilities and Expectations
+
+1. Every member attends all three oral defences (D1, D2, D3). An unexcused absence scores zero for that defence — individual marks.
+2. Every member appears or speaks in the YouTube demonstration.
+3. Every member can explain their own commits, their own code, and the ISA decisions made in their role week.
+4. If a member cannot meet a deadline, they notify the team at least 24 hours in advance and the Scrum Lead reassigns the work.
+5. AI tools may be used for exploration and drafting. All use must be declared in `AI_USE.md` (tool, purpose, what you changed). Code you cannot explain at a defence is not credited as yours.
+6. No changes to team composition after D1 without written approval from the coordinator.
+
+Signatures
+
+By committing to `main` or opening a pull request after this charter is merged, each member confirms they have read and agreed to it.
+
+| Member | Date |
+|--------|------|
+| Mokheseng Mohasoa | |
+| Tinotenda Chigowe | |
+| Katleho Motsheare | |
+| Tiisetso Masemene | |
+| Lebohang Lithebe | |
+| Mokhele Motloheloa | |
+
+Coordinator: Mr K. O. Setetemela (ko.setetemela@nul.ls)  
+Moderator: Mr L. Mojela
