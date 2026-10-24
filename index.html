@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LIMO Simulator Pro — Sesotho RISC-V</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- macOS Native Window Wrapper -->
+  <div class="mac-window">
+    
+    <!-- Top Chrome / Title Bar -->
+    <header class="window-titlebar">
+      <!-- Left: Window Traffic Lights + Processor Picker -->
+      <div class="titlebar-left">
+        
+        <div class="dropdown-wrapper">
+          <span class="chip-icon">🖲️</span>
+          <select id="exampleSelect" class="proc-dropdown">
+            <option value="program1">Program 1: Arithmetic (Kopanya/Tlosa)</option>
+            <option value="program2">Program 2: Memory (Bala/Boloka)</option>
+            <option value="program3">Program 3: Loop (Boelela)</option>
+            <option value="all_instructions">All 12 Sesotho Mnemonics</option>
+          </select>
+          <span class="chevron">⌵</span>
+        </div>
+      </div>
+
+      <!-- Center: Window Title & Transport Controls -->
+      <div class="titlebar-center">
+        <span class="window-title">LIMO Processor Simulator</span>
+        <div class="transport-controls">
+          <button id="btnRun" class="transport-btn" title="Run Continuous">▶</button>
+          <button id="btnStep" class="transport-btn" title="Step One Cycle">⏭</button>
+          <button id="btnReset" class="transport-btn" title="Reset Simulation">⏮</button>
+        </div>
+      </div>
+
+      <!-- Right: Secondary Actions -->
+      <div class="titlebar-right">
+        <button id="btnOpen" class="titlebar-action" title="Open .limo file">Open</button>
+        <button id="btnSave" class="titlebar-action" title="Save .limo file">Save</button>
+        <input type="file" id="fileInput" accept=".limo,.asm,.txt" style="display:none;">
+      </div>
+    </header>
+
+    <!-- Main Body Layout -->
+    <div class="window-body">
+
+      <!-- Left Vertical Activity Dock (Screenshot Left Rail) -->
+      <nav class="activity-dock">
+        <button class="dock-btn active" data-tab="editor" title="Editor">
+          <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          <span>Editor</span>
+        </button>
+
+        <button class="dock-btn" data-tab="processor" title="Pipeline Datapath">
+          <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+            <rect x="9" y="9" width="6" height="6"></rect>
+            <line x1="9" y1="1" x2="9" y2="4"></line>
+            <line x1="15" y1="1" x2="15" y2="4"></line>
+            <line x1="9" y1="20" x2="9" y2="23"></line>
+            <line x1="15" y1="20" x2="15" y2="23"></line>
+            <line x1="20" y1="9" x2="23" y2="9"></line>
+            <line x1="20" y1="14" x2="23" y2="14"></line>
+            <line x1="1" y1="9" x2="4" y2="9"></line>
+            <line x1="1" y1="14" x2="4" y2="14"></line>
+          </svg>
+          <span>Processor</span>
+        </button>
+
+        <button class="dock-btn" data-tab="pipeline" title="Pipeline Stages">
+          <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+          <span>Stages</span>
+        </button>
+
+        <button class="dock-btn" data-tab="memory-view" title="Memory">
+          <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <span>Memory</span>
+        </button>
+
+        <button class="dock-btn" data-tab="narration" title="Freshman Mode">
+          <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+          </svg>
+          <span>Narration</span>
+        </button>
+
+        <button class="dock-btn" id="dockBtnRegStatus" title="Register Status">
+          <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+          <span>Register<br>Status</span>
+        </button>
+      </nav>
+
+      <!-- Center Work Area: Editor & Terminal Execution Trace -->
+      <section class="center-stage">
+        
+        <!-- Editor Card with Tab Header -->
+        <div class="workspace-card">
+          <!-- Top Tab Bar -->
+          <div class="workspace-tabs-bar">
+            <div class="tab-button-group">
+              <button class="workspace-tab active" id="tabBtnEditor">
+                <span class="tab-icon">✏️</span> Editor
+              </button>
+              <button class="workspace-tab" id="tabBtnExecution">
+                <span class="tab-icon">▶</span> Execution
+              </button>
+            </div>
+            <button id="btnAssemble" class="generate-btn">Generate</button>
+          </div>
+
+          <!-- Code Editor Canvas -->
+          <div class="editor-container" id="editorViewArea">
+            <textarea id="assemblyEditor" spellcheck="false" placeholder="# Kenya taelo ea assembly ea LIMO mona..."></textarea>
+          </div>
+
+          <!-- Execution Pipeline Visualizer View (Hidden by default, shown via 'Execution' tab) -->
+          <div class="pipeline-view-area" id="pipelineViewArea" style="display:none;">
+            <div class="pipeline-blocks">
+              <div class="pipeline-block" id="stage-if">
+                <div class="block-title">IF</div>
+                <div class="block-sub">Instruction Fetch</div>
+                <div class="block-data" id="pipeDataIF">PC: 0x0000</div>
+              </div>
+              <div class="pipeline-block" id="stage-id">
+                <div class="block-title">ID</div>
+                <div class="block-sub">Decode / Reg Read</div>
+                <div class="block-data" id="pipeDataID">—</div>
+              </div>
+              <div class="pipeline-block" id="stage-ex">
+                <div class="block-title">EX</div>
+                <div class="block-sub">ALU Execute</div>
+                <div class="block-data" id="pipeDataEX">—</div>
+              </div>
+              <div class="pipeline-block" id="stage-mem">
+                <div class="block-title">MEM</div>
+                <div class="block-sub">Memory Access</div>
+                <div class="block-data" id="pipeDataMEM">—</div>
+              </div>
+              <div class="pipeline-block" id="stage-wb">
+                <div class="block-title">WB</div>
+                <div class="block-sub">Write Back</div>
+                <div class="block-data" id="pipeDataWB">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Execution Trace Console (Exact match to screenshot bottom terminal) -->
+        <div class="terminal-card">
+          <div class="terminal-body" id="executionConsole">
+            <div class="terminal-line dim"># LIMO Simulator Core Initialized. Ready to step.</div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Column: Registers & Memory Hex Panels -->
+      <aside class="right-inspector">
+
+        <!-- Top Right: Registers Card -->
+        <div class="inspector-card">
+          <!-- Top Card Tabs: Registers vs Memory -->
+          <div class="card-tabs">
+            <button class="card-tab active" id="tabRegsToggle">
+              <span class="tab-icon">📋</span> Registers
+            </button>
+            <button class="card-tab" id="tabMachineToggle">
+              <span class="tab-icon">🖲️</span> Machine Code
+            </button>
+          </div>
+
+          <!-- GPR Table Header -->
+          <div class="gpr-table-header">
+            <span class="col-gpr">GPR</span>
+            <span class="col-alias">Alias</span>
+            <span class="col-val">Value</span>
+          </div>
+
+          <!-- GPR Table Scroll List -->
+          <div class="gpr-scroll-container" id="gprTableBody">
+            <!-- Dynamically populated via JS -->
+          </div>
+
+          <!-- Bottom Display Type Switcher (Screenshot exact match) -->
+          <div class="display-type-bar">
+            <span class="display-label">Display Type:</span>
+            <div class="pill-segmented">
+              <button class="pill-opt active" data-format="hex">Hex</button>
+              <button class="pill-opt" data-format="bin">Binary</button>
+              <button class="pill-opt" data-format="dec">Decimal</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Right: Memory Hex Table Card -->
+        <div class="inspector-card memory-card">
+          <div class="memory-card-header">
+            <span class="green-square"></span>
+            <span class="mem-title">Memory</span>
+          </div>
+
+          <div class="memory-hex-view">
+            <table class="hex-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>x0</th>
+                  <th>x1</th>
+                  <th>x2</th>
+                  <th>x3</th>
+                  <th>x4</th>
+                  <th>x5</th>
+                  <th>x6</th>
+                </tr>
+              </thead>
+              <tbody id="memoryHexBody">
+                <tr>
+                  <td class="addr-label">0x00</td>
+                  <td>00</td><td>00</td><td>00</td><td>00</td><td>00</td><td>00</td><td>00</td>
+                </tr>
+                <tr>
+                  <td class="addr-label">0x64</td>
+                  <td>15</td><td>00</td><td>00</td><td>00</td><td>2A</td><td>00</td><td>00</td>
+                </tr>
+                <tr>
+                  <td class="addr-label">0x80</td>
+                  <td>00</td><td>00</td><td>00</td><td>00</td><td>00</td><td>00</td><td>00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+    <!-- Bottom Global Status Bar (Screenshot bottom bar) -->
+    <footer class="window-statusbar">
+      <div class="sb-left">
+        <span>Cycle: <strong id="sbCycleVal">0</strong></span>
+        <span class="sb-divider">|</span>
+        <span>CPI: <strong id="sbCpiVal">0.00</strong></span>
+        <span class="sb-divider">|</span>
+        <span id="sbNarrationText">Ready</span>
+      </div>
+      <div class="sb-right">
+        <span>Processor: <strong>5-stage pipelined</strong></span>
+        <span class="sb-divider">|</span>
+        <span>ISA: <strong>LIMO (Sesotho RV32I)</strong></span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

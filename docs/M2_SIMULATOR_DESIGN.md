@@ -52,6 +52,28 @@ The LIMO simulator is an educational, interactive 5-stage pipelined processor si
 +-------------------------------------------------------------------------------+
 ```
 
+### 1.1 Layer responsibilities and module map
+
+The build specification suggests an `assembler/`, `simulator/` and `ui/` split.
+The design keeps those responsibilities separate even where the M2 implementation
+currently uses fewer files. The table below is the contract for M3: a module may
+move, but its inputs, outputs and owner must not change silently.
+
+| Layer | Suggested modules (`LIMO_BUILD_SPEC.md`) | M2 files | Responsibilities | Inputs → outputs |
+|---|---|---|---|---|
+| **Editor and assembler** | `assembler/tokenizer.js`, `parser.js`, `encoder.js`, `errors.js`; `simulator/isa.js` | `src/assembler.js`, `src/isa.js` | Tokenise Sesotho identifiers and comments, run the two-pass symbol resolution, validate operands, encode R/I/S/B words, and report line-numbered errors. Knows the ISA; knows nothing about the pipeline. | `.limo` source → `{ instructions, errors, symbolTable, machineWords }` with per-line address, hex, binary and field metadata. |
+| **Pipeline engine** | `simulator/pipeline.js`, `memory.js`, `registers.js`; models in `src/models.js` | `src/models.js` (M2); `pipeline.js` in M3 | Own the architectural state (PC, 32 GPRs, data memory), the four pipeline registers, and one non-blocking stage update per clock. Fetch from instruction memory, decode and read registers, execute/branch-resolve, access data memory, write back. | Assembled instruction words + control inputs → next `CPUState`, per-stage trace, retirement/stall/flush counters. |
+| **Hazard unit** | `simulator/hazard.js` | `src/models.js` fields; `hazard.js` in M3/M4 | Detect load-use stalls and RAW forwarding; select `ForwardA`/`ForwardB`; drive PC/IF-ID freeze, bubble insertion and branch flush. Reads pipeline-register fields only. | `ID_EX`, `EX_MEM`, `MEM_WB`, `IF_ID`, forwarding-enable → stall/flush controls and forwarding selects. |
+| **UI views** | `ui/editor.js`, `datapath.js`, `controls.js`, `hazards.js`, `stats.js`, `freshman.js`, `app.js` | `index.html`, `style.css`, `src/app.js` | Render the editor, machine-code table, datapath, control-signal journey, hazard annotations, statistics and bilingual Freshman mode. Reads a snapshot of state; never mutates the pipeline directly. | `CPUState` snapshot + assembled program + selected view → DOM/SVG. |
+| **Tests and examples** | `tests/*.test.js`, `examples/*.limo` | `tests/`, `examples/` | Unit-test the assembler, model invariants, control decoder and hazard logic independently of the UI; provide runnable programs with expected register/memory/cycle results. | Module APIs → pass/fail with diagnostic messages; `.limo` source → expected final state. |
+
+Rules that keep the layers independent:
+
+1. The assembler never imports pipeline code, and the pipeline never parses source text.
+2. The hazard unit never reads the DOM and the UI never reaches into a stage function; the UI consumes a read-only snapshot.
+3. `src/models.js` is the single definition of the pipeline-register fields. M3 code must extend that model rather than invent parallel objects.
+4. The same `CPUState.reset()` path is used by the Reset button, a new program load and the tests.
+
 ---
 
 ## 2. Pipelined Datapath & Detailed Block Diagram
@@ -145,92 +167,151 @@ The processor implements the classical 5-stage RISC pipeline:
 +-----------------------------+ (Fed back to RegFile WB stage)
 ```
 
-### Hazard Resolution
-1. **RAW (Read-After-Write) Data Hazards**:
-   - Forwarding from `EX/MEM` to ALU inputs: when `EX/MEM.RegWrite == 1` and `EX/MEM.rd != 0` and `EX/MEM.rd == ID/EX.rs1` (or `rs2`).
-   - Forwarding from `MEM/WB` to ALU inputs: when `MEM/WB.RegWrite == 1` and `MEM/WB.rd != 0` and `MEM/WB.rd == ID/EX.rs1` (or `rs2`), unless overridden by `EX/MEM`.
-2. **Load-Use Data Hazard**:
-   - Condition: `ID/EX.MemRead == 1` and (`ID/EX.rd == IF/ID.rs1` or `ID/EX.rd == IF/ID.rs2`).
-   - Action: Hazard Unit stalls the pipeline for 1 clock cycle:
-     - Freezes `PC` write ($PC$ stays at same instruction).
-     - Freezes `IF/ID` register write ($IF/ID$ preserves current instruction).
-     - Inserts a bubble (synchronous clear / zero control signals) into `ID/EX`.
-3. **Control Hazards (Branch Taken)**:
-   - Branch condition and target evaluated in `EX` stage.
-   - When branch evaluates as taken:
-     - `PC` is updated with branch target address ($PC_{target} = PC_{EX} + \text{imm}_{B}$).
-     - `IF/ID` register is flushed (cleared to NOP).
-     - `ID/EX` register is flushed (cleared to NOP).
-     - Penalty: 2 cycles.
+### Hazard and control paths
+
+```
+ IF/ID.rs1, IF/ID.rs2 ─────────────┐
+                                   v
+                          +------------------+   stall=1   +---------------------------+
+ ID/EX.rd, ID/EX.ctrl.memRead ───> | Load-use detector| ──────────> | freeze PC and IF/ID;      |
+                          +------------------+             | ID/EX.flush() (bubble)    |
+                                                           +---------------------------+
+
+ EX/MEM.rd, EX_MEM.ctrl.regWrite ──┐
+                                    v
+                          +------------------+  ForwardA / ForwardB  +------------------+
+ MEM/WB.rd, MEM/WB.ctrl.regWrite ─>| Forwarding unit  | ───────────────────> | EX ALU input muxes|
+                          +------------------+   (EX/MEM has priority) +------------------+
+                                                                                  ^
+ ID/EX.rs1, ID/EX.rs2 ─────────────────────────────────────────────────────────────┘
+
+ ID/EX.ctrl.branch, ID/EX.readData1, ID/EX.readData2, ID/EX.immediate, ID/EX.pc
+                                    |
+                                    v
+                          +------------------+  branchTaken, branchTarget  +------------------+
+                          | EX branch unit   | ──────────────────────────> | next-PC mux      |
+                          +------------------+                              +------------------+
+                                    |
+                                    | taken
+                                    v
+                          IF/ID.flush(); ID/EX.flush(); EX_MEM.ctrl.pcSrc = 1
+```
+
+Every box in this diagram maps to a condition in the hazard table below and to a
+field in [`PIPELINE_REGISTERS.md`](PIPELINE_REGISTERS.md). The pipeline-engine
+layer owns the registers; the hazard unit only reads them and drives the
+freeze/flush/select outputs.
+
+---
+
+### Hazard Resolution and Named Control Paths
+
+All hazard paths below have named inputs and outputs so the hazard unit can be
+implemented and unit-tested without the UI. Signal names use the model fields
+documented in [`PIPELINE_REGISTERS.md`](PIPELINE_REGISTERS.md).
+
+| Path | Inputs | Output / action |
+|---|---|---|
+| **Forward A from EX/MEM** | `EX_MEM.ctrl.regWrite`, `EX_MEM.rd`, `ID_EX.rs1`, `EX_MEM.aluResult` | `ForwardA = EX/MEM`; ALU input A becomes `EX_MEM.aluResult`. |
+| **Forward B from EX/MEM** | `EX_MEM.ctrl.regWrite`, `EX_MEM.rd`, `ID_EX.rs2`, `EX_MEM.aluResult` (or `EX_MEM.writeData` for a store) | `ForwardB = EX/MEM`; ALU input B / store data becomes the EX/MEM value. |
+| **Forward A from MEM/WB** | `MEM_WB.ctrl.regWrite`, `MEM_WB.rd`, `ID_EX.rs1`, `MEM_WB.writeBackValue` | `ForwardA = MEM/WB`; ALU input A becomes `MEM_WB.writeBackValue`. |
+| **Forward B from MEM/WB** | `MEM_WB.ctrl.regWrite`, `MEM_WB.rd`, `ID_EX.rs2`, `MEM_WB.writeBackValue` | `ForwardB = MEM/WB`; ALU input B / store data becomes `MEM_WB.writeBackValue`. |
+| **Load-use stall** | `ID_EX.ctrl.memRead`, `ID_EX.rd`, `IF_ID.rs1`, `IF_ID.rs2` | `stall = 1`: freeze PC and `IF/ID`; `ID_EX.flush()` inserts one bubble. |
+| **Branch flush** | `ID_EX.ctrl.branch`, `ID_EX.readData1`, `ID_EX.readData2`, `ID_EX.immediate`, `ID_EX.pc` | EX computes `branchTaken` and `branchTarget`; on taken, `if_id.flush()`, `id_ex.flush()`, `pcSrc = 1` and next `PC = branchTarget`. |
+| **Write-back** | `MEM_WB.valid`, `MEM_WB.ctrl.regWrite`, `MEM_WB.ctrl.memToReg`, `MEM_WB.rd`, `MEM_WB.aluResult`, `MEM_WB.memData` | `writeBackValue` is selected in MEM; WB writes it to `rd` only when valid and `regWrite` (and `rd != noto`). |
+
+Priority and timing rules:
+
+1. `EX_MEM` forwarding wins over `MEM/WB` when both match; it is the younger producer.
+2. The load-use condition is checked before forwarding. A load in EX has only its address in `EX_MEM.aluResult`, so the dependent instruction must wait one cycle and then take the value from `MEM_WB.writeBackValue`.
+3. A branch is resolved in EX. The two younger instructions (in IF and ID) are squashed, giving a 2-cycle flush penalty. `EX_MEM.branchTaken` and `EX_MEM.ctrl.pcSrc` record the decision for the datapath view and the next-PC mux.
+4. Forwarding can be disabled from the UI. With forwarding OFF, every RAW condition in the table becomes a stall, so the statistics view can show the cycle cost.
+5. A flushed or stalled entry is a bubble: `valid === false` and `ctrl` is a NOP. It cannot commit a register or memory write.
+
+### Data-flow walkthrough: `bala r2, 0(r1)`
+
+Assume `r1 = 100`, `Memory[100] = 21`, and the instruction is at address `0x20`.
+
+| Cycle | Stage | State after the clock edge | Notes |
+|---|---|---|---|
+| 1 | **IF** | `IF/ID = { pc: 0x20, pcPlus4: 0x24, instruction: bala, rs1: 1, rd: 2, immediate: 0, valid: true }` | Instruction fetched from instruction memory; PC advances to `0x24`. |
+| 2 | **ID** | `ID/EX = { pc: 0x20, rs1: 1, rs2: 0, rd: 2, readData1: 100, readData2: 0, immediate: 0, ctrl: { memRead: 1, memToReg: 1, regWrite: 1, aluOp: 'ADD', aluSrc: 1 } }` | `rs1` is read from the register file; `0` is sign-extended; the control unit asserts load controls. |
+| 3 | **EX** | `EX/MEM = { aluResult: 100, writeData: 0, rd: 2, ctrl: { memRead: 1, memToReg: 1, regWrite: 1 } }` | ALU computes the effective address `r1 + 0 = 100`. If the next instruction reads `r2`, the hazard unit raises the load-use stall. |
+| 4 | **MEM** | `MEM/WB = { aluResult: 100, memData: 21, rd: 2, writeBackValue: 21, ctrl: { memToReg: 1, regWrite: 1 } }` | Data memory reads word 21 at address 100; `writeBackValue` selects `memData`. |
+| 5 | **WB** | `r2 = 21`; `MEM_WB` becomes a bubble next cycle | WB writes `writeBackValue`; retirement counter increments. |
+
+### Data-flow walkthrough: `boloka r3, 4(r1)`
+
+Assume `r1 = 100`, `r3 = 42`, and the instruction is at address `0x30`.
+
+| Cycle | Stage | State after the clock edge | Notes |
+|---|---|---|---|
+| 1 | **IF** | `IF/ID = { pc: 0x30, pcPlus4: 0x34, instruction: boloka, rs1: 1, rs2: 3, immediate: 4, valid: true }` | Instruction fetched; PC advances to `0x34`. |
+| 2 | **ID** | `ID/EX = { pc: 0x30, rs1: 1, rs2: 3, rd: 0, readData1: 100, readData2: 42, immediate: 4, ctrl: { memWrite: 1, aluOp: 'ADD', aluSrc: 1, regWrite: 0 } }` | Both source registers are read; `rd` is not used by a store. `RegWrite` stays 0. |
+| 3 | **EX** | `EX/MEM = { aluResult: 104, writeData: 42, rd: 0, ctrl: { memWrite: 1, regWrite: 0 } }` | ALU computes the effective address `r1 + 4`; `writeData` carries `rs2` (possibly forwarded). |
+| 4 | **MEM** | `MEM/WB = { aluResult: 104, memData: 0, rd: 0, writeBackValue: 104, ctrl: { memWrite: 1, regWrite: 0 } }` | Data memory writes 42 to address 104. No register write is enabled. |
+| 5 | **WB** | No architectural change | `ctrl.regWrite == 0`, so WB does nothing. The store has already completed in MEM. |
+
+Both walkthroughs use the same four registers. The only difference is which
+controls survive and whether WB commits; this is why the control bundle travels
+with every instruction instead of being regenerated from `rd` or the mnemonic.
 
 ---
 
 ## 3. Pipeline-Register Data Model
 
-Each pipeline register carries data and control flags forward to the next clock cycle. In software, these are structured as immutable or cycle-latched state objects.
+Each pipeline register is a plain JavaScript object latched once per clock. The
+complete field-by-field contract (name, type, source, purpose), the control
+signal bundle, reset/bubble behaviour, microarchitectural-only fields and the
+hazard-unit inputs are defined in
+[`PIPELINE_REGISTERS.md`](PIPELINE_REGISTERS.md). The executable definition is
+[`src/models.js`](../src/models.js). This section is the short map; the separate
+document is authoritative when the two disagree.
 
-### 3.1 `IF/ID` Register
-| Field | Type / Width | Description |
-|---|---|---|
-| `pc` | uint32 (32 bits) | The PC of the fetched instruction |
-| `pcPlus4` | uint32 (32 bits) | $PC + 4$ sequentially computed |
-| `rawInstruction` | uint32 (32 bits) | The 32-bit machine word |
-| `valid` | boolean | False if flushed (NOP) or stalled bubble |
-| `sourceLine` | number | Line number in the original .limo file (for debugging/narration) |
-
-### 3.2 `ID/EX` Register
-| Group | Field | Type | Description |
+| Register | Latched from | Key payload | Consumed by |
 |---|---|---|---|
-| **Context** | `pc` | uint32 | Instruction's PC |
-| | `pcPlus4` | uint32 | $PC + 4$ |
-| | `valid` | boolean | True if valid instruction, false if flushed/bubble |
-| | `sourceLine`| number | Original source line |
-| | `instructionName` | string | e.g. `kopanya`, `bala`, `boloka` |
-| **Operands** | `readData1` | int32 | Register value $rs1$ read from RegFile |
-| | `readData2` | int32 | Register value $rs2$ read from RegFile |
-| | `immediate` | int32 | Sign-extended 32-bit immediate |
-| | `rs1` | uint5 | Source register 1 index ($0..31$) |
-| | `rs2` | uint5 | Source register 2 index ($0..31$) |
-| | `rd` | uint5 | Destination register index ($0..31$) |
-| | `funct3` | uint3 | 3-bit funct field |
-| | `funct7` | uint7 | 7-bit funct field |
-| **EX Controls**| `aluOp` | string | ALU operation code (`ADD`, `SUB`, `AND`, `OR`, `NOT`, `SLL`, `PASS`) |
-| | `aluSrc` | uint1 | 0: second operand is register ($rs2$); 1: second operand is immediate |
-| | `branch` | uint1 | 1 if branch instruction (`lekana`, `hali_lekane`, `kholo_ho`) |
-| **MEM Controls**| `memRead` | uint1 | 1 if memory load (`bala`) |
-| | `memWrite` | uint1 | 1 if memory store (`boloka`) |
-| **WB Controls** | `regWrite` | uint1 | 1 if writes to register file (`rd != 0`) |
-| | `memToReg` | uint1 | 0: ALU result; 1: Memory load data |
+| `IF/ID` | IF | `pc`, `pcPlus4`, `instruction`, decoded `rs1`/`rs2`/`rd`/immediate, `valid` | ID and the load-use hazard check |
+| `ID/EX` | ID | `pc`, register indices and values, `immediate`, `funct3`/`funct7`, `ctrl` | EX, forwarding unit and branch unit |
+| `EX/MEM` | EX | `aluResult`, `writeData`, `rd`, `branchTarget`, `branchTaken`, `ctrl` | MEM and the EX/MEM forwarding path |
+| `MEM/WB` | MEM | `aluResult`, `memData`, `rd`, `writeBackValue`, `ctrl` | WB and the MEM/WB forwarding path |
 
-### 3.3 `EX/MEM` Register
-| Group | Field | Type | Description |
-|---|---|---|---|
-| **Context** | `pc` | uint32 | Instruction's PC |
-| | `valid` | boolean | Valid flag |
-| | `sourceLine`| number | Original source line |
-| | `instructionName` | string | Instruction mnemonic |
-| **Data** | `aluResult` | int32 | Computed arithmetic/logic or memory effective address |
-| | `writeData` | int32 | Data to store to memory ($rs2$ value, possibly forwarded) |
-| | `rd` | uint5 | Destination register index |
-| **Branch** | `branchTarget`| uint32 | Computed branch target address ($PC + \text{imm}$) |
-| | `branchTaken` | boolean | True if branch condition satisfied |
-| **MEM Controls**| `memRead` | uint1 | Memory read enable |
-| | `memWrite` | uint1 | Memory write enable |
-| **WB Controls** | `regWrite` | uint1 | Register write enable |
-| | `memToReg` | uint1 | Selects memory data (1) vs. ALU result (0) |
+### 3.1 Control signals
 
-### 3.4 `MEM/WB` Register
-| Group | Field | Type | Description |
-|---|---|---|---|
-| **Context** | `pc` | uint32 | Instruction's PC |
-| | `valid` | boolean | Valid flag |
-| | `sourceLine`| number | Original source line |
-| | `instructionName` | string | Instruction mnemonic |
-| **Data** | `aluResult` | int32 | Result from ALU stage |
-| | `memData` | int32 | Word loaded from data memory (if `memRead == 1`) |
-| | `rd` | uint5 | Destination register index |
-| **WB Controls** | `regWrite` | uint1 | Register write enable |
-| | `memToReg` | uint1 | Memory to register MUX control |
+Every register carries the same `ControlSignals` bundle:
+`aluOp` (ALUCtrl), `aluSrc`, `branch`, `branchType`, `memRead`, `memWrite`,
+`regWrite`, `memToReg` and `pcSrc`. ID generates the bundle; EX sets `pcSrc` when
+a branch is taken; MEM and WB consume the subset relevant to their stage. A
+bubble carries `ControlSignals.createNop()`, so every signal is deasserted.
+
+### 3.2 Reset and bubble representation
+
+- Constructors call `reset()`: every numeric field is `0`, `valid` is `false`,
+  `branchTaken` is `false`, `mnemonic`/`sourceLine` are `null`, and `ctrl` is a
+  NOP bundle.
+- `flush()` calls `reset()` and labels the entry `'FLUSH (Bubble)'`.
+- `valid === false` is the authoritative bubble marker. Downstream stages must
+  not commit architectural state from an invalid register.
+- A load-use stall freezes PC and `IF/ID` and calls `ID_EX.flush()`. A taken
+  branch calls `IF_ID.flush()` and `ID_EX.flush()` and sets
+  `EX_MEM.ctrl.pcSrc = 1`.
+
+### 3.3 Microarchitectural-only fields
+
+`IF/ID`, `ID/EX`, `EX/MEM`, `MEM/WB`, `valid`, `ctrl`, `sourceLine`,
+`assemblyText`, `mnemonic`, `branchTarget`, `branchTaken`, `aluResult`,
+`memData` and `writeBackValue` are not part of the LIMO ISA. They exist for this
+five-stage implementation, for flushing/diagnostics, or for the UI. The
+architectural state is the 32 GPRs, PC and data memory. See the ISA
+specification's design-decision log item (b) for why the ISA must not specify
+pipeline registers.
+
+### 3.4 Hazard-unit inputs available in the model
+
+`ID_EX.ctrl.memRead`, `ID_EX.rd`, `IF_ID.rs1`, `IF_ID.rs2`,
+`EX_MEM.ctrl.regWrite`, `EX_MEM.rd`, `MEM_WB.ctrl.regWrite`, `MEM_WB.rd`,
+`ID_EX.rs1`, `ID_EX.rs2`, `MEM_WB.writeBackValue` and `EX_MEM.aluResult` are all
+directly readable. No stage needs to reconstruct a register index from the raw
+instruction word.
 
 ---
 

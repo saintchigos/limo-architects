@@ -20,6 +20,8 @@ export class AssemblerError extends Error {
   }
 }
 
+export { AssemblerError as AssemblyError };
+
 /**
  * Tokenizes a single line of LIMO assembly code.
  * Handles Sesotho digraphs (apostrophes in ts', ch'), labels, comments, commas, parentheses.
@@ -142,6 +144,8 @@ export function toHex32(num) {
   return (num >>> 0).toString(16).toUpperCase().padStart(8, '0');
 }
 
+export const oHex32 = toHex32;
+
 /**
  * Helper to convert 32-bit unsigned integer to 32-character binary string.
  */
@@ -240,7 +244,10 @@ export class LimoAssembler {
     this.errors = [];
     this.instructions = [];
 
-    const rawLines = sourceCode.split('\n');
+    if (sourceCode === undefined || sourceCode === null) {
+      sourceCode = '';
+    }
+    const rawLines = String(sourceCode).split('\n');
     const parsedLines = [];
 
     // PASS 1: Detect labels, check instruction counts, assign addresses
@@ -278,10 +285,20 @@ export class LimoAssembler {
     }
 
     if (this.errors.length > 0) {
+      const formattedErrors = this.errors.map(e => {
+        if (typeof e === 'string') {
+          return e;
+        }
+        const msg = e.message || String(e);
+        if (e.lineNumber && !/^Line\s+\d+:/.test(msg)) {
+          return `Line ${e.lineNumber}: ${msg}`;
+        }
+        return msg;
+      });
       return {
         success: false,
         instructions: [],
-        errors: this.errors,
+        errors: formattedErrors,
         symbolTable: this.symbolTable
       };
     }
@@ -301,12 +318,45 @@ export class LimoAssembler {
       }
     }
 
+    if (this.errors.length > 0) {
+      const formattedErrors = this.errors.map(e => {
+        if (typeof e === 'string') {
+          return e;
+        }
+        const msg = e.message || String(e);
+        if (e.lineNumber && !/^Line\s+\d+:/.test(msg)) {
+          return `Line ${e.lineNumber}: ${msg}`;
+        }
+        return msg;
+      });
+      return {
+        success: false,
+        instructions: this.instructions,
+        errors: formattedErrors,
+        symbolTable: this.symbolTable,
+        machineWords: this.instructions.map(inst => inst.machineCode)
+      };
+    }
+
+    const resultInstructions = this.instructions.map(instr => {
+      if (instr.value === undefined && instr.machineCode !== undefined) {
+        instr.value = instr.machineCode >>> 0;
+      }
+      if (!instr.hex && instr.value !== undefined) {
+        instr.hex = toHex32(instr.value);
+      }
+      if (!instr.binary && instr.value !== undefined) {
+        instr.binary = toBinary32(instr.value);
+      }
+      return instr;
+    });
+
     return {
-      success: this.errors.length === 0,
-      instructions: this.instructions,
-      errors: this.errors,
+      success: true,
+      instructions: resultInstructions,
+      errors: [],
       symbolTable: this.symbolTable,
-      machineWords: this.instructions.map(inst => inst.machineCode)
+      machineWords: resultInstructions.map(inst => inst.machineCode)
     };
   }
 
@@ -537,3 +587,7 @@ export class LimoAssembler {
     };
   }
 }
+
+export { LimoAssembler as Assembler };
+export default LimoAssembler;
+
