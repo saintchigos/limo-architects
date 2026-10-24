@@ -10,6 +10,10 @@ online (web-based) pipeline simulator. It is a CS3520 project by team **Architec
   instruction fetch, decode, execute, memory, and write-back as instructions flow through
   the pipeline.
 
+## Live Demo
+
+- [LIMO Simulator Pro](https://saintchigos.github.io/limo-architects/)
+
 ## Status
 
 Work in progress.
