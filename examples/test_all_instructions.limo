@@ -1,0 +1,38 @@
+# LIMO Test Suite — Comprehensive Instruction & Orthography Test
+# CS3520 — Computer Organisation and Architecture
+# Exercises all 12 instructions and Sesotho register aliases
+
+# 1. Arithmetic immediate
+kopanya_hang r1, noto, 20
+
+# 2. Shift left logical immediate
+checha_hang_leqeleng r2, r1, 2
+
+# 3. Arithmetic register-register
+kopanya r3, r1, r2
+tlosa r4, r3, r1
+
+# 4. Logic operations
+le r5, r1, r2
+kapa r6, r1, r2
+hase r7, r1
+
+# 5. Memory access using Sesotho register names with apostrophes
+kopanya_hang ts'upiso_phaello, noto, 200
+boloka r6, 0(ts'upiso_phaello)
+bala r8, 0(ts'upiso_phaello)
+
+# 6. Conditional branches
+lekana r8, r6, label_equal
+kopanya_hang r9, noto, 99
+
+label_equal:
+hali_lekane r1, r2, label_notequal
+kopanya_hang r10, noto, 99
+
+label_notequal:
+kholo_ho r2, r1, qetello
+kopanya_hang r11, noto, 99
+
+qetello:
+kopanya_hang r12, noto, 1

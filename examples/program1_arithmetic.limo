@@ -1,0 +1,11 @@
+# LIMO Program 1 — Arithmetic and Logic
+# CS3520 — Computer Organisation and Architecture
+# Computes: r5 = (r1 + r2) AND (r1 - r2)
+# With a = 12, b = 5
+# Expected results: r1=12, r2=5, r3=17, r4=7, r5=1
+
+kopanya_hang r1, r0, 12     # r1 = 12           (a)
+kopanya_hang r2, r0, 5      # r2 = 5            (b)
+kopanya      r3, r1, r2     # r3 = 12 + 5 = 17  (sum)
+tlosa        r4, r1, r2     # r4 = 12 - 5 = 7   (difference)
+le           r5, r3, r4     # r5 = 17 AND 7 = 1 (bitwise AND)

@@ -1,0 +1,9 @@
+# LIMO Program 2 — Memory Access
+# CS3520 — Computer Organisation and Architecture
+# Assumes Memory[100] = 21 is pre-loaded before execution
+# Expected: Memory[100] = 21 (unchanged), Memory[104] = 42
+
+kopanya_hang r1, r0, 100    # r1 = 100           (base address)
+bala         r2, 0(r1)      # r2 = Memory[100] = 21
+kopanya      r3, r2, r2     # r3 = 21 + 21 = 42  (double r2)
+boloka       r3, 4(r1)      # Memory[104] = 42
