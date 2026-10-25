@@ -537,6 +537,44 @@ body {
   color: #ffffff;
 }
 
+/* Machine Code table (registers card, second tab) */
+.machine-header {
+  grid-template-columns: 44px 78px 1fr;
+}
+
+.mc-row {
+  display: grid;
+  grid-template-columns: 44px 78px 1fr;
+  padding: 4px 12px;
+  line-height: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  white-space: nowrap;
+}
+
+.mc-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mc-addr {
+  color: #8b95a5;
+}
+
+.mc-word {
+  color: var(--accent-cyan);
+}
+
+.mc-bin {
+  color: #ffffff;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.mc-empty {
+  padding: 12px;
+  color: var(--text-muted);
+  white-space: normal;
+}
+
 /* Display Type Segmented Switcher (Screenshot exact match) */
 .display-type-bar {
   padding: 8px 12px;

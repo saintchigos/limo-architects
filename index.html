@@ -197,7 +197,7 @@
           </div>
 
           <!-- GPR Table Header -->
-          <div class="gpr-table-header">
+          <div class="gpr-table-header" id="regsTableHeader">
             <span class="col-gpr">GPR</span>
             <span class="col-alias">Alias</span>
             <span class="col-val">Value</span>
@@ -208,8 +208,18 @@
             <!-- Dynamically populated via JS -->
           </div>
 
+          <!-- Machine Code View (toggled via tabMachineToggle) -->
+          <div class="gpr-table-header machine-header" id="machineTableHeader" style="display: none;">
+            <span class="col-addr">ADDR</span>
+            <span class="col-word">WORD</span>
+            <span class="col-bin">BINARY</span>
+          </div>
+          <div class="gpr-scroll-container" id="machineCodeBody" style="display: none;">
+            <!-- Dynamically populated via JS -->
+          </div>
+
           <!-- Bottom Display Type Switcher (Screenshot exact match) -->
-          <div class="display-type-bar">
+          <div class="display-type-bar" id="displayTypeBar">
             <span class="display-label">Display Type:</span>
             <div class="pill-segmented">
               <button class="pill-opt active" data-format="hex">Hex</button>
