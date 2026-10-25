@@ -1,0 +1,20 @@
+# LIMO Program 3 — Conditional Branch and Loop
+# CS3520 — Computer Organisation and Architecture
+# Computes: r5 = 5 + 4 + 3 + 2 + 1 = 15
+# r1 = loop counter (5 down to 1)
+# r2 = decrement (constant 1)
+# r3 = loop exit threshold (constant 1)
+# r5 = accumulator
+
+kopanya_hang r1, r0, 5      # r1 = 5  (counter, starts at 5)
+kopanya_hang r2, r0, 1      # r2 = 1  (decrement value)
+kopanya_hang r3, r0, 1      # r3 = 1  (loop exit threshold)
+kopanya_hang r5, r0, 0      # r5 = 0  (accumulator)
+
+boelela:
+    kopanya  r5, r5, r1      # r5 = r5 + r1  (accumulate counter)
+    tlosa    r1, r1, r2      # r1 = r1 - 1   (decrement counter)
+    kholo_ho r1, r3, boelela # if r1 >= 1, branch back to boelela
+
+# Loop terminates when r1 = 0, at which point r1 >= 1 is false
+# r5 = 5 + 4 + 3 + 2 + 1 = 15

@@ -1,0 +1,11 @@
+{
+  "name": "limo-architects",
+  "version": "0.2.0",
+  "description": "LIMO pipeline simulator — CS3520 team project (Architects)",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/assembler_test.js"
+  },
+  "license": "MIT",
+  "private": true
+}
