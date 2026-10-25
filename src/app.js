@@ -364,6 +364,10 @@ class LimoApp {
     this.editor = document.getElementById('assemblyEditor');
     this.console = document.getElementById('executionConsole');
     this.gprBody = document.getElementById('gprTableBody');
+    this.mcBody = document.getElementById('machineCodeBody');
+    this.mcHeader = document.getElementById('machineTableHeader');
+    this.regsHeader = document.getElementById('regsTableHeader');
+    this.displayBar = document.getElementById('displayTypeBar');
     this.exampleSelect = document.getElementById('exampleSelect');
     this.sbCycleVal = document.getElementById('sbCycleVal');
     this.sbCpiVal = document.getElementById('sbCpiVal');
@@ -424,6 +428,31 @@ class LimoApp {
       });
     });
 
+    // Inspector Card Tabs: Registers vs Machine Code
+    const tabRegs = document.getElementById('tabRegsToggle');
+    const tabMachine = document.getElementById('tabMachineToggle');
+
+    tabRegs.addEventListener('click', () => {
+      tabRegs.classList.add('active');
+      tabMachine.classList.remove('active');
+      this.gprBody.style.display = '';
+      this.regsHeader.style.display = '';
+      this.displayBar.style.display = '';
+      this.mcBody.style.display = 'none';
+      this.mcHeader.style.display = 'none';
+    });
+
+    tabMachine.addEventListener('click', () => {
+      tabMachine.classList.add('active');
+      tabRegs.classList.remove('active');
+      this.gprBody.style.display = 'none';
+      this.regsHeader.style.display = 'none';
+      this.displayBar.style.display = 'none';
+      this.mcBody.style.display = '';
+      this.mcHeader.style.display = '';
+      this.renderMachineCode();
+    });
+
     // Display Type Segmented Switcher (Hex | Binary | Decimal)
     document.querySelectorAll('.pill-opt').forEach(opt => {
       opt.addEventListener('click', () => {
@@ -474,10 +503,14 @@ class LimoApp {
     if (this.assembledResult.success) {
       this.logTerminal(`>> [Assembler] Assembly successful: ${this.assembledResult.instructions.length} instructions bound cleanly.`);
       this.sbNarrationText.textContent = "Assembly e lokile. Penya ⏭ ho hatela pele.";
+      this.renderMachineCode();
     } else {
       const err = this.assembledResult.errors[0];
-      this.logTerminal(`>> [Error] ${err.message}`);
+      const lineTag = err && err.line ? `Line ${err.line}: ` : '';
+      const msg = err && err.message ? err.message : String(err);
+      this.logTerminal(`>> [Error] ${lineTag}${msg}`);
       this.sbNarrationText.textContent = "Synta ea assembly e fosaahetse.";
+      this.renderMachineCode();
     }
   }
 
@@ -685,6 +718,32 @@ class LimoApp {
       `;
     }
     this.gprBody.innerHTML = html;
+  }
+
+  renderMachineCode() {
+    if (!this.mcBody) return;
+
+    if (!this.assembledResult || !this.assembledResult.success || this.assembledResult.instructions.length === 0) {
+      this.mcBody.innerHTML = '<div class="mc-empty"># Assembly ha e soe. Lokisa liphoso ho editor, ea kena ho penya &#9654;.</div>';
+      return;
+    }
+
+    let html = '';
+    for (const inst of this.assembledResult.instructions) {
+      const addrHex = '0x' + toHex32(inst.address).slice(4);
+      const wordHex = inst.hex;
+      const bin = ((parseInt(wordHex, 16) >>> 0).toString(2)).padStart(32, '0');
+      const tooltip = `opcode=${bin.slice(0, 7)} rd=${inst.fields.rd !== null ? bin.slice(7, 12) : '—'} funct3=${bin.slice(12, 15)} ... (${inst.mnemonic})`;
+
+      html += `
+        <div class="mc-row" title="${tooltip}">
+          <span class="mc-addr">${addrHex}</span>
+          <span class="mc-word">${wordHex}</span>
+          <span class="mc-bin">${bin}</span>
+        </div>
+      `;
+    }
+    this.mcBody.innerHTML = html;
   }
 
   renderMemory() {

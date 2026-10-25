@@ -285,20 +285,13 @@ export class LimoAssembler {
     }
 
     if (this.errors.length > 0) {
-      const formattedErrors = this.errors.map(e => {
-        if (typeof e === 'string') {
-          return e;
-        }
-        const msg = e.message || String(e);
-        if (e.lineNumber && !/^Line\s+\d+:/.test(msg)) {
-          return `Line ${e.lineNumber}: ${msg}`;
-        }
-        return msg;
-      });
       return {
         success: false,
         instructions: [],
-        errors: formattedErrors,
+        errors: this.errors.map(e => ({
+          message: (e && e.message) || String(e),
+          line: (e && e.lineNumber) || null
+        })),
         symbolTable: this.symbolTable
       };
     }
@@ -319,20 +312,13 @@ export class LimoAssembler {
     }
 
     if (this.errors.length > 0) {
-      const formattedErrors = this.errors.map(e => {
-        if (typeof e === 'string') {
-          return e;
-        }
-        const msg = e.message || String(e);
-        if (e.lineNumber && !/^Line\s+\d+:/.test(msg)) {
-          return `Line ${e.lineNumber}: ${msg}`;
-        }
-        return msg;
-      });
       return {
         success: false,
         instructions: this.instructions,
-        errors: formattedErrors,
+        errors: this.errors.map(e => ({
+          message: (e && e.message) || String(e),
+          line: (e && e.lineNumber) || null
+        })),
         symbolTable: this.symbolTable,
         machineWords: this.instructions.map(inst => inst.machineCode)
       };
