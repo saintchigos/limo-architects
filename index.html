@@ -110,7 +110,7 @@
           <span>Narration</span>
         </button>
 
-        <button class="dock-btn" id="dockBtnRegStatus" title="Register Status">
+        <button class="dock-btn" id="dockBtnRegStatus" data-tab="regstatus" title="Register Status">
           <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <line x1="8" y1="6" x2="21" y2="6"></line>
             <line x1="8" y1="12" x2="21" y2="12"></line>
@@ -154,20 +154,40 @@
                 <div class="block-sub">Instruction Fetch</div>
                 <div class="block-data" id="pipeDataIF">PC: 0x0000</div>
               </div>
+              <div class="latch-conn" id="conn-IF_ID" title="IF/ID latch: empty">
+                <span class="latch-label">IF/ID</span>
+                <span class="latch-wire"></span>
+                <span class="latch-dot" aria-hidden="true"></span>
+              </div>
               <div class="pipeline-block" id="stage-id">
                 <div class="block-title">ID</div>
                 <div class="block-sub">Decode / Reg Read</div>
                 <div class="block-data" id="pipeDataID">—</div>
+              </div>
+              <div class="latch-conn" id="conn-ID_EX" title="ID/EX latch: empty">
+                <span class="latch-label">ID/EX</span>
+                <span class="latch-wire"></span>
+                <span class="latch-dot" aria-hidden="true"></span>
               </div>
               <div class="pipeline-block" id="stage-ex">
                 <div class="block-title">EX</div>
                 <div class="block-sub">ALU Execute</div>
                 <div class="block-data" id="pipeDataEX">—</div>
               </div>
+              <div class="latch-conn" id="conn-EX_MEM" title="EX/MEM latch: empty">
+                <span class="latch-label">EX/MEM</span>
+                <span class="latch-wire"></span>
+                <span class="latch-dot" aria-hidden="true"></span>
+              </div>
               <div class="pipeline-block" id="stage-mem">
                 <div class="block-title">MEM</div>
                 <div class="block-sub">Memory Access</div>
                 <div class="block-data" id="pipeDataMEM">—</div>
+              </div>
+              <div class="latch-conn" id="conn-MEM_WB" title="MEM/WB latch: empty">
+                <span class="latch-label">MEM/WB</span>
+                <span class="latch-wire"></span>
+                <span class="latch-dot" aria-hidden="true"></span>
               </div>
               <div class="pipeline-block" id="stage-wb">
                 <div class="block-title">WB</div>
@@ -175,6 +195,44 @@
                 <div class="block-data" id="pipeDataWB">—</div>
               </div>
             </div>
+
+            <!-- Pipeline-register + control-signal inspector (below the strip) -->
+            <div class="latch-inspector" id="latchInspector"></div>
+          </div>
+
+          <!-- Memory view (dock: Memory) -->
+          <div class="channel-view" id="memoryViewArea" style="display:none;">
+            <div class="channel-title">Data Memory <span class="channel-sub">· every written address, live</span></div>
+            <table class="hex-table channel-table">
+              <thead>
+                <tr><th>Address</th><th>Value</th><th>Hex</th></tr>
+              </thead>
+              <tbody id="memoryViewBody"></tbody>
+            </table>
+          </div>
+
+          <!-- Narration view (dock: Narration) -->
+          <div class="channel-view" id="narrationViewArea" style="display:none;">
+            <div class="channel-title">Narration <span class="channel-sub">· English + Sesotho, per cycle</span></div>
+            <div class="narr-row">
+              <span class="narr-lang">EN</span>
+              <p class="narr-text" id="narrViewEn">Ready to step.</p>
+            </div>
+            <div class="narr-row">
+              <span class="narr-lang st">ST</span>
+              <p class="narr-text" id="narrViewSt">Tobetsa Step ho qala.</p>
+            </div>
+          </div>
+
+          <!-- Register status view (dock: Register Status) -->
+          <div class="channel-view" id="regViewArea" style="display:none;">
+            <div class="channel-title">Register File <span class="channel-sub">· all 32 GPRs with Sesotho meanings</span></div>
+            <table class="channel-table">
+              <thead>
+                <tr><th>Reg</th><th>Alias</th><th>Hinti / Meaning</th><th>Value</th></tr>
+              </thead>
+              <tbody id="regStatusBody"></tbody>
+            </table>
           </div>
         </div>
 

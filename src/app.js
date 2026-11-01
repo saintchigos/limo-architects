@@ -188,24 +188,40 @@ class LimoApp {
       fileInput.addEventListener('change', (e) => this.openFile(e));
     }
 
-    // Tab switching in Center Area: Editor vs Execution
-    const tabEditor = document.getElementById('tabBtnEditor');
-    const tabExecution = document.getElementById('tabBtnExecution');
-    const editorArea = document.getElementById('editorViewArea');
-    const pipelineArea = document.getElementById('pipelineViewArea');
+    // Central center-area view switcher. Views: editor, pipeline, memory,
+    // narration, regstatus. Dock buttons and workspace tabs both funnel here.
+    const views = ['editorViewArea', 'pipelineViewArea', 'memoryViewArea', 'narrationViewArea', 'regViewArea'];
+    const showCenterView = (view) => {
+      const target = {
+        editor: 'editorViewArea',
+        processor: 'pipelineViewArea',
+        pipeline: 'pipelineViewArea',
+        'memory-view': 'memoryViewArea',
+        narration: 'narrationViewArea',
+        regstatus: 'regViewArea',
+      }[view] ?? 'editorViewArea';
+      for (const id of views) {
+        document.getElementById(id).style.display = id === target ? controllerFor(target) : 'none';
+      }
+      // Workspace tab bar follows: Editor tab active only on the editor view.
+      const tabEditor = document.getElementById('tabBtnEditor');
+      const tabExecution = document.getElementById('tabBtnExecution');
+      tabEditor.classList.toggle('active', target === 'editorViewArea');
+      tabExecution.classList.toggle('active', target === 'pipelineViewArea');
+    };
+    const controllerFor = (id) => (id === 'editorViewArea' || id === 'pipelineViewArea') ? 'block' : 'flex';
 
-    tabEditor.addEventListener('click', () => {
-      tabEditor.classList.add('active');
-      tabExecution.classList.remove('active');
-      editorArea.style.display = 'block';
-      pipelineArea.style.display = 'none';
+    // Workspace tabs return to editor / pipeline views
+    document.getElementById('tabBtnEditor').addEventListener('click', () => {
+      document.querySelectorAll('.dock-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('.dock-btn[data-tab="editor"]').classList.add('active');
+      showCenterView('editor');
     });
-
-    tabExecution.addEventListener('click', () => {
-      tabExecution.classList.add('active');
-      tabEditor.classList.remove('active');
-      editorArea.style.display = 'none';
-      pipelineArea.style.display = 'block';
+    document.getElementById('tabBtnExecution').addEventListener('click', () => {
+      document.querySelectorAll('.dock-btn').forEach(b => b.classList.remove('active'));
+      const stageBtn = document.querySelector('.dock-btn[data-tab="pipeline"]');
+      if (stageBtn) stageBtn.classList.add('active');
+      showCenterView('pipeline');
     });
 
     // Left Activity Dock buttons
@@ -213,9 +229,7 @@ class LimoApp {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.dock-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        const tab = btn.dataset.tab;
-        if (tab === 'editor') tabEditor.click();
-        if (tab === 'processor' || tab === 'pipeline') tabExecution.click();
+        showCenterView(btn.dataset.tab);
       });
     });
 
@@ -252,6 +266,7 @@ class LimoApp {
         this.displayFormat = opt.dataset.format;
         this.renderRegisters(new Set());
         this.renderMemory(new Set());
+        this.renderChannelViews(new Set(), new Set());
       });
     });
 
@@ -259,6 +274,8 @@ class LimoApp {
     this.renderRegisters(new Set());
     this.renderMemory(new Set());
     this.runAssemble();
+    this.renderLatchInspector();
+    this.renderChannelViews(new Set(), new Set());
 
     // Test/verification hooks: ?example=<key>&autostep=<n> (also handy for demos)
     const params = new URLSearchParams(window.location.search);
@@ -275,6 +292,12 @@ class LimoApp {
       }
       // Demo/test convenience: show the pipeline view for the stepped state
       document.getElementById('tabBtnExecution').click();
+    }
+    // ?view=<editor|processor|pipeline|memory-view|narration|regstatus> — start on a dock view
+    const viewParam = params.get('view');
+    if (viewParam) {
+      const btn = document.querySelector(`.dock-btn[data-tab="${viewParam}"]`);
+      if (btn) btn.click();
     }
   }
 
@@ -374,13 +397,15 @@ class LimoApp {
     this.sbRetiredVal.textContent = result.retired;
     this.sbFlushVal.textContent = this.engine.cpu.flushCount;
 
-    // Pipeline visualiser + terminal + narration
+    // Pipeline visualiser + terminal + narration + latch inspector
     this.renderPipeline(result.stages);
     this.appendTrace(result.trace);
     this.renderRegisters(this.diffChangedRegisters());
     this.renderMemory(this.diffChangedMemory());
+    this.renderChannelViews(this.diffChangedRegisters(), this.diffChangedMemory());
 
     const narration = this.buildNarration(result);
+    this.lastNarration = narration;
     this.setNarration(narration.EN);
 
     if (result.halted) {
@@ -416,7 +441,8 @@ class LimoApp {
     return changed;
   }
 
-  /* Pipeline stage blocks — the IF→ID→EX→MEM→WB strip */
+  /* Pipeline stage blocks — the IF→ID→EX→MEM→WB strip, plus the latch
+     connectors ("wiring") between them and the register inspector */
   renderPipeline(stages) {
     const map = { IF: 'if', ID: 'id', EX: 'ex', MEM: 'mem', WB: 'wb' };
     for (const [stage, key] of Object.entries(map)) {
@@ -433,6 +459,136 @@ class LimoApp {
       block.classList.add('active');
       data.textContent = this.stageDataText(stage, p);
     }
+    this.renderLatchConns(stages);
+    this.renderLatchInspector();
+  }
+
+  /* Latch connectors: does the register between stage i and i+1 carry data?
+     It carries data exactly when the downstream stage has a valid entry in
+     its latch this cycle — read from the engine snapshot, not the payloads. */
+  renderLatchConns(stages) {
+    const latchFor = {
+      'conn-IF_ID': s => s.ID && s.ID.valid,
+      'conn-ID_EX': s => s.EX && s.EX.valid,
+      'conn-EX_MEM': s => s.MEM && s.MEM.valid,
+      'conn-MEM_WB': s => s.WB && s.WB.valid,
+    };
+    for (const [id, hasData] of Object.entries(latchFor)) {
+      const conn = document.getElementById(id);
+      if (!conn) continue;
+      const name = id.replace('conn-', '').replace('_', '/');
+      const p = stages[name.split('/')[1]];
+      const flushed = p && p.flushed;
+      conn.classList.remove('data', 'bubble');
+      if (hasData(stages)) conn.classList.add('data');
+      else if (flushed) conn.classList.add('bubble');
+      conn.title = `${name} latch: ` + (hasData(stages)
+        ? 'carrying data this cycle'
+        : flushed ? 'flushed (branch squashed this instruction)' : 'bubble — nothing in flight');
+    }
+  }
+
+  /* Pipeline-register + control-signal inspector: one card per latch
+     (IF/ID, ID/EX, EX/MEM, MEM/WB) rendered from the engine snapshot. */
+  renderLatchInspector() {
+    const el = document.getElementById('latchInspector');
+    if (!el) return;
+    const latches = [
+      ['IF/ID', this.engine ? this.engine.cpu.IF_ID : null],
+      ['ID/EX', this.engine ? this.engine.cpu.ID_EX : null],
+      ['EX/MEM', this.engine ? this.engine.cpu.EX_MEM : null],
+      ['MEM/WB', this.engine ? this.engine.cpu.MEM_WB : null],
+    ];
+    el.innerHTML = latches.map(([name, L]) => {
+      if (!L || !L.valid) {
+        const flushed = !!L && /FLUSH/i.test(L.assemblyText || '');
+        return `
+          <div class="latch-card ${flushed ? 'flushed' : 'bubble'}">
+            <div class="latch-card-head">
+              <span class="latch-card-title">${name}</span>
+              <span class="latch-card-state ${flushed ? 'flushed' : 'bubble'}">${flushed ? 'FLUSHED' : 'BUBBLE'}</span>
+            </div>
+            <div class="latch-card-inst dim">— (no instruction in flight)</div>
+            <div class="latch-fields">
+              <div class="row"><span>inside</span><em>nothing (drained)</em></div>
+            </div>
+            <div class="signal-chips">
+              ${this.signalChips(null)}
+            </div>
+          </div>`;
+      }
+      const inst = L.assemblyText || L.mnemonic || '?';
+      return `
+        <div class="latch-card">
+          <div class="latch-card-head">
+            <span class="latch-card-title">${name}</span>
+            <span class="latch-card-state data">DATA</span>
+          </div>
+          <div class="latch-card-inst" title="${this.escHtml(inst)}">${this.escHtml(inst)}</div>
+          <div class="latch-fields">
+            ${this.latchFieldRows(name, L)}
+          </div>
+          <div class="signal-chips">
+            ${this.signalChips(L.ctrl)}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  latchFieldRows(name, L) {
+    const esc = (v) => this.escHtml(String(v));
+    const rows = [];
+    if (name === 'IF/ID') {
+      rows.push(['pc', `0x${(L.pc >>> 0).toString(16).padStart(4, '0')}`]);
+      rows.push(['pcPlus4', `0x${(L.pcPlus4 >>> 0).toString(16).padStart(4, '0')}`]);
+      rows.push(['instr', `0x${(L.instruction >>> 0).toString(16).padStart(8, '0')}`]);
+    } else if (name === 'ID/EX') {
+      rows.push(['pc', `0x${(L.pc >>> 0).toString(16).padStart(4, '0')}`]);
+      rows.push(['rs1', `r${L.rs1} = ${this.formatValue(L.readData1)}`]);
+      rows.push(['rs2', `r${L.rs2} = ${this.formatValue(L.readData2)}`]);
+      rows.push(['imm', `${esc(L.immediate)}`]);
+      rows.push(['rd', `r${L.rd}`]);
+    } else if (name === 'EX/MEM') {
+      rows.push(['aluResult', `${this.formatValue(L.aluResult)}`]);
+      rows.push(['writeData', `${this.formatValue(L.writeData)}`]);
+      if (L.branchTarget !== undefined && L.branchTarget !== null) {
+        rows.push(['branchTarget', `0x${(L.branchTarget >>> 0).toString(16).padStart(4, '0')}` + (L.branchTaken ? ' ✓ taken' : '')]);
+      }
+      rows.push(['rd', `r${L.rd}`]);
+    } else { // MEM/WB
+      rows.push(['writeBack', `${this.formatValue(L.writeBackValue)}`]);
+      rows.push(['rd', `r${L.rd}`]);
+    }
+    return rows.map(([k, v]) => `<div class="row"><span>${esc(k)}</span><em>${v}</em></div>`).join('');
+  }
+
+  /* The 8 documented control signals as 1/0 chips, lit when asserted */
+  signalChips(ctrl) {
+    const names = ['RegWrite', 'ALUSrc', 'ALUCtrl', 'MemRead', 'MemWrite', 'MemToReg', 'Branch', 'PCSrc'];
+    if (!ctrl) {
+      return names.map(n => n === 'ALUCtrl' ? `<span class="signal-chip">ALUCtrl=—</span>` : `<span class="signal-chip">${n}=0</span>`).join('');
+    }
+    const vals = {
+      RegWrite: ctrl.regWrite,
+      ALUSrc: ctrl.aluSrc,
+      ALUCtrl: ctrl.aluOp,
+      MemRead: ctrl.memRead,
+      MemWrite: ctrl.memWrite,
+      MemToReg: ctrl.memToReg,
+      Branch: ctrl.branch,
+      PCSrc: ctrl.pcSrc,
+    };
+    return names.map(n => {
+      const v = vals[n];
+      const lit = v === 1 || (n === 'ALUCtrl' && typeof v === 'string' && v && v !== 'NOP');
+      const shown = n === 'ALUCtrl' ? this.escHtml(String(v)) : (lit ? 1 : 0);
+      return `<span class="signal-chip ${lit ? 'lit' : ''}">${n}=${shown}</span>`;
+    }).join('');
+  }
+
+  /** Minimal HTML escaping for instruction text rendered into innerHTML. */
+  escHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   stageDataText(stage, p) {
@@ -547,10 +703,15 @@ class LimoApp {
       const data = b.querySelector('.block-data');
       if (data) data.textContent = '—';
     });
+    // Reset latch connectors + inspector (from engine state, which reset() cleared)
+    this.renderLatchConns({ IF: null, ID: null, EX: null, MEM: null, WB: null });
+    this.renderLatchInspector();
     this.renderRegisters(new Set());
     this.renderMemory(new Set());
+    this.renderChannelViews(new Set(), new Set());
     this.setStateChip('ready', 'Ready');
     this.sbNarrationText.textContent = 'Simulation reset. Ready to step.';
+    this.setNarration('Simulation reset. Ready to step.', 'Simulation e qaliloe. Lokisa ho qala hape.');
   }
 
   finishRun() { // kept for API completeness (halting is reported by the engine)
@@ -648,6 +809,50 @@ class LimoApp {
     body.innerHTML = html;
   }
 
+  /* Dock center-views: Memory, Register Status, Narration. Rendered after
+     every step and on reset so each view is live when opened. */
+  renderChannelViews(changedRegs, changedMem) {
+    const memBody = document.getElementById('memoryViewBody');
+    if (memBody) {
+      const entries = this.engine
+        ? [...this.engine.cpu.memory.entries()].sort((a, b) => a[0] - b[0])
+        : [];
+      let html = '';
+      if (entries.length === 0) {
+        html += '<tr><td colspan="3" class="dim">Memory ha e soa (empty) — boloka ho kenya data.</td></tr>';
+      } else {
+        for (const [addr, value] of entries) {
+          const isChanged = changedMem && changedMem.has(addr);
+          html += `
+            <tr>
+              <td class="addr-label">${this.formatValue(addr)}</td>
+              <td class="${isChanged ? 'changed' : ''}">${(value | 0).toLocaleString('en-US')}${isChanged ? ' ●' : ''}</td>
+              <td class="${isChanged ? 'changed' : ''}">0x${((value | 0) >>> 0).toString(16).padStart(8, '0')}</td>
+            </tr>`;
+        }
+      }
+      memBody.innerHTML = html;
+    }
+
+    const regBody = document.getElementById('regStatusBody');
+    if (regBody) {
+      let html = '';
+      for (let i = 0; i < 32; i++) {
+        const info = REGISTER_INFO[i];
+        const val = this.engine ? this.engine.cpu.readRegister(i) : 0;
+        const isChanged = changedRegs && changedRegs.has(i);
+        html += `
+          <tr>
+            <td class="addr-label">r${i}</td>
+            <td>${this.escHtml(info.alias !== null ? info.alias : '—')}</td>
+            <td class="reg-meaning">${this.escHtml(info.meaning || '')}</td>
+            <td class="${isChanged ? 'changed' : ''}">${this.formatValue(val)}${isChanged ? ' ●' : ''}</td>
+          </tr>`;
+      }
+      regBody.innerHTML = html;
+    }
+  }
+
   renderMachineCode() {
     if (!this.mcBody) return;
 
@@ -680,11 +885,14 @@ class LimoApp {
     this.sbStateChip.className = `sb-chip ${state}`.trim();
   }
 
-  setNarration(enText) {
-    // The bottom bar shows the English narration; the Sesotho freshman-mode
-    // panel (M5) will consume EXAMPLES' own translations plus narrationST()
-    // helpers added alongside the datapath views.
+  setNarration(enText, stText) {
     this.sbNarrationText.textContent = enText;
+    // Keep lastNarration fresh (Sesotho falls back to the last translated line)
+    this.lastNarration = { EN: enText, ST: stText ?? this.lastNarration?.ST ?? '—' };
+    const en = document.getElementById('narrViewEn');
+    const st = document.getElementById('narrViewSt');
+    if (en) en.textContent = this.lastNarration.EN;
+    if (st) st.textContent = this.lastNarration.ST;
   }
 }
 
