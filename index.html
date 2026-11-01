@@ -25,6 +25,7 @@
             <option value="program1">Program 1: Arithmetic (Kopanya/Tlosa)</option>
             <option value="program2">Program 2: Memory (Bala/Boloka)</option>
             <option value="program3">Program 3: Loop (Boelela)</option>
+            <option value="program4_hazard_free">Program 4: Hazard-Free Spacing (M3)</option>
             <option value="all_instructions">All 12 Sesotho Mnemonics</option>
           </select>
           <span class="chevron">⌵</span>
@@ -38,6 +39,11 @@
           <button id="btnRun" class="transport-btn" title="Run Continuous">▶</button>
           <button id="btnStep" class="transport-btn" title="Step One Cycle">⏭</button>
           <button id="btnReset" class="transport-btn" title="Reset Simulation">⏮</button>
+          <select id="speedSelect" class="speed-select" title="Run speed">
+            <option value="slow">0.5×</option>
+            <option value="normal" selected>1×</option>
+            <option value="fast">4×</option>
+          </select>
         </div>
       </div>
 
@@ -240,29 +246,12 @@
             <table class="hex-table">
               <thead>
                 <tr>
-                  <th></th>
-                  <th>x0</th>
-                  <th>x1</th>
-                  <th>x2</th>
-                  <th>x3</th>
-                  <th>x4</th>
-                  <th>x5</th>
-                  <th>x6</th>
+                  <th>Address</th>
+                  <th>Value</th>
                 </tr>
               </thead>
               <tbody id="memoryHexBody">
-                <tr>
-                  <td class="addr-label">0x00</td>
-                  <td>00</td><td>00</td><td>00</td><td>00</td><td>00</td><td>00</td><td>00</td>
-                </tr>
-                <tr>
-                  <td class="addr-label">0x64</td>
-                  <td>15</td><td>00</td><td>00</td><td>00</td><td>2A</td><td>00</td><td>00</td>
-                </tr>
-                <tr>
-                  <td class="addr-label">0x80</td>
-                  <td>00</td><td>00</td><td>00</td><td>00</td><td>00</td><td>00</td><td>00</td>
-                </tr>
+                <!-- Dynamically populated via JS -->
               </tbody>
             </table>
           </div>
@@ -277,7 +266,13 @@
       <div class="sb-left">
         <span>Cycle: <strong id="sbCycleVal">0</strong></span>
         <span class="sb-divider">|</span>
-        <span>CPI: <strong id="sbCpiVal">0.00</strong></span>
+        <span>Retired: <strong id="sbRetiredVal">0</strong></span>
+        <span class="sb-divider">|</span>
+        <span>CPI: <strong id="sbCpiVal">—</strong></span>
+        <span class="sb-divider">|</span>
+        <span>Flushes: <strong id="sbFlushVal">0</strong></span>
+        <span class="sb-divider">|</span>
+        <span class="sb-chip ready" id="sbStateChip">Ready</span>
         <span class="sb-divider">|</span>
         <span id="sbNarrationText">Ready</span>
       </div>
