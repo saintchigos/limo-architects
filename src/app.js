@@ -164,6 +164,9 @@ class LimoApp {
     reader.onload = (evt) => {
       this.editor.value = evt.target.result;
       this.runAssemble();
+      if (this.assembledResult && this.assembledResult.success) {
+        this.loadProgram();
+      }
     };
     reader.readAsText(file);
   }
@@ -451,6 +454,7 @@ class LimoApp {
       this.mcBody.style.display = '';
       this.mcHeader.style.display = '';
       this.renderMachineCode();
+      this.loadedProgram = null;
     });
 
     // Display Type Segmented Switcher (Hex | Binary | Decimal)
@@ -494,6 +498,9 @@ class LimoApp {
     reader.onload = (evt) => {
       this.editor.value = evt.target.result;
       this.runAssemble();
+      if (this.assembledResult && this.assembledResult.success) {
+        this.loadProgram();
+      }
     };
     reader.readAsText(file);
   }
@@ -502,8 +509,9 @@ class LimoApp {
     this.assembledResult = this.assembler.assemble(this.editor.value);
     if (this.assembledResult.success) {
       this.logTerminal(`>> [Assembler] Assembly successful: ${this.assembledResult.instructions.length} instructions bound cleanly.`);
-      this.sbNarrationText.textContent = "Assembly e lokile. Penya ⏭ ho hatela pele.";
+      if (this.sbNarrationText) { this.sbNarrationText.textContent = "Assembly e lokile. Penya ⏭ ho hatela pele."; }
       this.renderMachineCode();
+      this.loadProgram();
     } else {
       const err = this.assembledResult.errors[0];
       const lineTag = err && err.line ? `Line ${err.line}: ` : '';
@@ -511,6 +519,7 @@ class LimoApp {
       this.logTerminal(`>> [Error] ${lineTag}${msg}`);
       this.sbNarrationText.textContent = "Synta ea assembly e fosaahetse.";
       this.renderMachineCode();
+      this.loadedProgram = null;
     }
   }
 
@@ -519,11 +528,17 @@ class LimoApp {
       this.runAssemble();
       if (!this.assembledResult || !this.assembledResult.success) return;
     }
+    if (!this.loadedProgram && this.assembledResult && this.assembledResult.success) {
+      this.loadProgram();
+    }
 
     const instructions = this.assembledResult.instructions;
-    if (instructions.length === 0 || this.isHalted) return;
+    const programInstructions = (this.loadedProgram && this.loadedProgram.instructions && this.loadedProgram.instructions.length > 0)
+      ? this.loadedProgram.instructions
+      : instructions;
+    if (programInstructions.length === 0 || this.isHalted) return;
 
-    const currentInst = instructions[this.instructionIndex];
+    const currentInst = programInstructions[this.instructionIndex];
     if (!currentInst) {
       this.finishRun();
       return;
@@ -637,7 +652,7 @@ class LimoApp {
           : rs1Val >= rs2Val;
         if (branchTaken) {
           const targetAddress = currentInst.address + f.imm;
-          const targetIndex = instructions.findIndex(inst => inst.address === targetAddress);
+          const targetIndex = (this.loadedProgram && this.loadedProgram.instructions ? this.loadedProgram.instructions : instructions).findIndex(inst => inst.address === targetAddress);
           nextInstructionIndex = targetIndex === -1 ? instructions.length : targetIndex;
         }
         this.logTerminal(`   <span class="t-sub-arrow">-&gt;</span> ${currentInst.mnemonic}: ${branchTaken ? 'branch taken' : 'branch not taken'}`);
@@ -648,7 +663,7 @@ class LimoApp {
       }
 
       this.instructionIndex = nextInstructionIndex;
-      if (this.instructionIndex >= instructions.length) this.finishRun();
+      if (this.instructionIndex >= (this.loadedProgram && this.loadedProgram.instructions ? this.loadedProgram.instructions.length : instructions.length)) this.finishRun();
     }
 
     this.renderRegisters(modifiedReg);
@@ -664,6 +679,9 @@ class LimoApp {
     }
     if (!this.assembledResult || !this.assembledResult.success) this.runAssemble();
     if (!this.assembledResult || !this.assembledResult.success || this.isHalted) return;
+    if (!this.loadedProgram && this.assembledResult && this.assembledResult.success) {
+      this.loadProgram();
+    }
     const button = document.getElementById('btnRun');
     button.textContent = '⏸';
     button.title = 'Pause execution';
@@ -719,6 +737,50 @@ class LimoApp {
     }
     this.gprBody.innerHTML = html;
   }
+
+  loadProgram() {
+    if (!this.assembledResult || !this.assembledResult.success) {
+      this.loadedProgram = null;
+      return;
+    }
+    this.stopRun();
+    this.currentCycle = 0;
+    this.instructionIndex = 0;
+    this.isHalted = false;
+    this.cpu.reset();
+    if (this.sbCycleVal) this.sbCycleVal.textContent = '0';
+    if (this.console) {
+      this.console.innerHTML = '<div class="terminal-line dim"># Simulation e qaliloe. Program Counter e ho 0x00000000.</div>';
+    }
+    document.querySelectorAll('.pipeline-block').forEach(b => b.classList.remove('active'));
+
+    const instructions = this.assembledResult.instructions || [];
+    this.loadedProgram = {
+      instructions: instructions.map((inst, index) => ({
+        address: typeof inst.address === 'number' ? inst.address : index * 4,
+        machineCode: inst.machineCode,
+        word: inst.machineCode,
+        hex: inst.hex,
+        binary: inst.binary,
+        mnemonic: inst.mnemonic,
+        fields: inst.fields,
+        lineNumber: inst.lineNumber,
+        lineText: inst.lineText,
+        instructionDef: inst.instructionDef
+      })),
+      machineWords: this.assembledResult.machineWords || instructions.map(inst => inst.machineCode),
+      symbolTable: this.assembledResult.symbolTable || {},
+      pc: 0
+    };
+    this.cpu.pc = 0;
+    this.instructionIndex = 0;
+    this.renderRegisters();
+    this.renderMemory();
+    if (this.sbNarrationText) {
+      this.sbNarrationText.textContent = `Program loaded: ${instructions.length} instruction(s). PC = 0x00000000.`;
+    }
+    this.logTerminal(`>> [Loader] Program loaded into machine: ${instructions.length} instruction(s), PC reset to 0x00000000.`);
+  },
 
   renderMachineCode() {
     if (!this.mcBody) return;
