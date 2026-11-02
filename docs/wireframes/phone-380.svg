@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="900" viewBox="0 0 380 900" role="img" aria-labelledby="title desc">
+  <title id="title">LIMO phone wireframe at 380 pixels</title>
+  <desc id="desc">Phone layout with sticky controls, editor and assembler tabs, stage strip, compact datapath, register and memory tables, statistics, and bilingual narration.</desc>
+  <style>
+    .bg { fill: #f5f7fa; }
+    .screen { fill: #ffffff; stroke: #1e293b; stroke-width: 3; }
+    .panel { fill: #ffffff; stroke: #334155; stroke-width: 1.2; }
+    .soft { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1; }
+    .bar { fill: #1e293b; }
+    .bar-text { fill: #ffffff; font: 600 12px Inter, Arial, sans-serif; }
+    .title { fill: #0f172a; font: 600 12px Inter, Arial, sans-serif; }
+    .label { fill: #334155; font: 600 10px Inter, Arial, sans-serif; }
+    .small { fill: #475569; font: 10px Inter, Arial, sans-serif; }
+    .muted { fill: #64748b; font: 9px Inter, Arial, sans-serif; }
+    .code { fill: #0f172a; font: 9px 'Fira Code', Consolas, monospace; }
+    .btn { fill: #e2e8f0; stroke: #94a3b8; stroke-width: 1; }
+    .stage { fill: #f1f5f9; stroke: #64748b; stroke-width: 1; }
+    .stage-on { fill: #dbeafe; stroke: #2563eb; stroke-width: 2; }
+    .latch { fill: #ecfeff; stroke: #0891b2; stroke-width: 1; }
+    .hazard { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.2; }
+    .good { fill: #ecfdf5; stroke: #10b981; stroke-width: 1; }
+    .rule { stroke: #cbd5e1; stroke-width: 1; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="380" height="900"/>
+  <rect class="screen" x="8" y="8" width="364" height="884" rx="18"/>
+
+  <!-- Sticky header and transport -->
+  <rect class="bar" x="8" y="8" width="364" height="48" rx="18"/>
+  <rect x="8" y="38" width="364" height="18" fill="#1e293b"/>
+  <text class="bar-text" x="24" y="31">LIMO Simulator</text>
+  <text x="266" y="31" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="10">Menu</text>
+
+  <rect x="20" y="64" width="340" height="58" rx="5" fill="#ffffff" stroke="#334155"/>
+  <rect class="btn" x="28" y="74" width="52" height="34" rx="4"/>
+  <text x="42" y="95" class="label">Step</text>
+  <rect class="btn" x="86" y="74" width="48" height="34" rx="4"/>
+  <text x="101" y="95" class="label">Run</text>
+  <rect class="btn" x="140" y="74" width="52" height="34" rx="4"/>
+  <text x="152" y="95" class="label">Pause</text>
+  <rect class="btn" x="198" y="74" width="52" height="34" rx="4"/>
+  <text x="210" y="95" class="label">Reset</text>
+  <rect x="256" y="74" width="96" height="34" rx="4" fill="#ecfdf5" stroke="#10b981"/>
+  <text x="264" y="95" class="label">Forward: ON</text>
+  <text x="28" y="118" class="muted">Cycle 7 | CPI 1.44 | Stalls 0 | Flushes 0</text>
+
+  <!-- Tabs -->
+  <rect x="20" y="132" width="340" height="28" rx="4" fill="#e2e8f0" stroke="#94a3b8"/>
+  <text x="36" y="150" class="label">Editor</text>
+  <text x="96" y="150" class="small">Execution</text>
+  <text x="176" y="150" class="small">Registers</text>
+  <text x="244" y="150" class="small">Memory</text>
+  <text x="304" y="150" class="small">Narration</text>
+
+  <!-- Source and output -->
+  <rect class="panel" x="20" y="170" width="340" height="154" rx="5"/>
+  <text x="32" y="188" class="title">Source + assembler output</text>
+  <line x1="32" y1="196" x2="348" y2="196" class="rule"/>
+  <g class="code">
+    <text x="32" y="214" fill="#64748b">3  kopanya_hang r1, r0, 12</text>
+    <text x="32" y="230">4  kopanya_hang r2, r0, 5</text>
+    <text x="32" y="246">5  kopanya r3, r1, r2</text>
+    <text x="32" y="262">6  tlosa r4, r1, r2</text>
+    <text x="32" y="278">7  le r5, r3, r4</text>
+  </g>
+  <text x="32" y="298" class="muted">Machine output scrolls horizontally; address column is sticky.</text>
+  <rect class="soft" x="32" y="304" width="316" height="14" rx="2"/>
+  <text x="38" y="314" class="code">0x00  00A0C2C9  OP f3 rd rs1 imm  line 3</text>
+  <text x="32" y="332" class="muted">Diagnostics: line 6 warning - RAW distance 2; stale until M4.</text>
+
+  <!-- Stage strip -->
+  <rect class="panel" x="20" y="334" width="340" height="82" rx="5"/>
+  <text x="32" y="352" class="title">Stages</text>
+  <rect class="stage-on" x="32" y="360" width="52" height="30" rx="3"/>
+  <text x="50" y="379" class="label">IF</text>
+  <rect class="stage" x="90" y="360" width="52" height="30" rx="3"/>
+  <text x="108" y="379" class="label">ID</text>
+  <rect class="stage-on" x="148" y="360" width="52" height="30" rx="3"/>
+  <text x="166" y="379" class="label">EX</text>
+  <rect class="stage" x="206" y="360" width="52" height="30" rx="3"/>
+  <text x="222" y="379" class="label">MEM</text>
+  <rect class="stage" x="264" y="360" width="52" height="30" rx="3"/>
+  <text x="280" y="379" class="label">WB</text>
+  <text x="32" y="408" class="muted">Horizontal scroll for 5 stages; active stage has a text label + outline.</text>
+
+  <!-- Compact datapath -->
+  <rect class="panel" x="20" y="426" width="340" height="170" rx="5"/>
+  <text x="32" y="444" class="title">Datapath (compact)</text>
+  <rect class="soft" x="32" y="454" width="64" height="34" rx="3"/>
+  <text x="42" y="468" class="small">PC</text><text x="38" y="482" class="code">0x00000018</text>
+  <rect class="soft" x="108" y="454" width="64" height="34" rx="3"/>
+  <text x="120" y="468" class="small">I-MEM</text><text x="116" y="482" class="muted">word</text>
+  <rect class="latch" x="184" y="450" width="54" height="42" rx="3"/>
+  <text x="192" y="466" class="small">IF/ID</text><text x="194" y="480" class="code">i5</text>
+  <rect class="soft" x="250" y="454" width="98" height="34" rx="3"/>
+  <text x="260" y="468" class="small">Control</text><text x="258" y="482" class="muted">decode</text>
+  <rect class="soft" x="32" y="504" width="90" height="34" rx="3"/>
+  <text x="42" y="518" class="small">RegFile</text><text x="40" y="532" class="code">r1=5 r2=7</text>
+  <rect class="latch" x="134" y="500" width="54" height="42" rx="3"/>
+  <text x="142" y="516" class="small">ID/EX</text><text x="144" y="530" class="code">i4</text>
+  <rect class="soft" x="200" y="504" width="70" height="34" rx="3"/>
+  <text x="212" y="518" class="small">ALU</text><text x="208" y="532" class="code">=12</text>
+  <rect class="soft" x="282" y="504" width="66" height="34" rx="3"/>
+  <text x="292" y="518" class="small">D-MEM</text><text x="290" y="532" class="muted">aligned</text>
+  <text x="32" y="558" class="muted">Live labels: PC, PC+4, branch target, rs1/rs2, imm, ALU A/B, mem addr/data, WB.</text>
+  <rect class="hazard" x="32" y="566" width="316" height="22" rx="3"/>
+  <text x="40" y="581" class="small">Hazard: ForwardA=MEM/WB (01) | ForwardB=EX_MEM (10) | no stall</text>
+
+  <!-- Stats and state -->
+  <rect class="panel" x="20" y="606" width="340" height="118" rx="5"/>
+  <text x="32" y="624" class="title">Statistics + state</text>
+  <text x="32" y="642" class="small">Pipeline chart (scrolls vertically)</text>
+  <g font-size="8" font-family="Inter, Arial, sans-serif">
+    <text x="32" y="658" class="muted">i0</text><rect x="52" y="650" width="14" height="10" fill="#dbeafe" stroke="#2563eb"/><rect x="68" y="650" width="14" height="10" fill="#dbeafe" stroke="#2563eb"/><rect x="84" y="650" width="14" height="10" fill="#dbeafe" stroke="#2563eb"/><rect x="100" y="650" width="14" height="10" fill="#dbeafe" stroke="#2563eb"/><rect x="116" y="650" width="14" height="10" fill="#ecfdf5" stroke="#10b981"/>
+    <text x="32" y="674" class="muted">i1</text><rect x="68" y="666" width="14" height="10" fill="#dbeafe" stroke="#2563eb"/><rect x="84" y="666" width="14" height="10" fill="#dbeafe" stroke="#2563eb"/><rect x="100" y="666" width="14" height="10" fill="#dbeafe" stroke="#2563eb"/><rect x="116" y="666" width="14" height="10" fill="#dbeafe" stroke="#2563eb"/><rect x="132" y="666" width="14" height="10" fill="#ecfdf5" stroke="#10b981"/>
+    <text x="32" y="690" class="muted">i2</text><rect x="84" y="682" width="14" height="10" fill="#dbeafe" stroke="#2563eb"/><rect x="100" y="682" width="14" height="10" fill="#dbeafe" stroke="#2563eb"/><rect x="116" y="682" width="14" height="10" fill="#dbeafe" stroke="#2563eb"/><rect x="132" y="682" width="14" height="10" fill="#dbeafe" stroke="#2563eb"/><rect x="148" y="682" width="14" height="10" fill="#ecfdf5" stroke="#10b981"/>
+  </g>
+  <text x="180" y="660" class="small">Cycles 13, retired 9, CPI 1.44</text>
+  <text x="180" y="678" class="small">Stalls 0, flushes 0, forwarding ON</text>
+  <text x="180" y="696" class="small">Bubble cells are labelled, not just coloured.</text>
+  <text x="32" y="714" class="muted">Register and memory tables open as full-height sheets on tap.</text>
+
+  <!-- Narration -->
+  <rect class="bar" x="8" y="732" width="364" height="24"/>
+  <text x="20" y="748" class="bar-text">Freshman mode narration</text>
+  <rect class="panel" x="20" y="762" width="340" height="80" rx="5"/>
+  <text x="32" y="780" class="small">EN: IF fetched i6 at 0x18. ID read r1=5 and r2=7.</text>
+  <text x="32" y="796" class="small">ST: IF e balile i6 ho 0x18. ID e balile r1=5 le r2=7.</text>
+  <text x="32" y="812" class="small">Tooltip: "Forwarding sends the EX/MEM result straight to EX."</text>
+  <text x="32" y="828" class="muted">Sesotho apostrophes remain readable; narration is an ARIA live region.</text>
+
+  <rect class="good" x="20" y="850" width="340" height="32" rx="4"/>
+  <text x="32" y="870" class="small">380px check: no horizontal page scroll. Only data tables scroll inside their panel.</text>
+</svg>
