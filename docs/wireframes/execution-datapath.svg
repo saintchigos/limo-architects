@@ -1,0 +1,260 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820" role="img" aria-labelledby="title desc">
+  <title id="title">LIMO execution, datapath, control, hazard, and statistics wireframe</title>
+  <desc id="desc">Desktop execution screen with pipeline controls, five-stage strip, datapath live values, control-signal journey, hazard annotations, statistics, register file, memory table, and bilingual narration.</desc>
+  <style>
+    .bg { fill: #f5f7fa; }
+    .panel { fill: #ffffff; stroke: #334155; stroke-width: 1.5; }
+    .panel-soft { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1; }
+    .bar { fill: #1e293b; }
+    .bar-text { fill: #ffffff; font: 600 14px Inter, Arial, sans-serif; }
+    .title { fill: #0f172a; font: 600 15px Inter, Arial, sans-serif; }
+    .label { fill: #334155; font: 600 11px Inter, Arial, sans-serif; }
+    .small { fill: #475569; font: 11px Inter, Arial, sans-serif; }
+    .muted { fill: #64748b; font: 10px Inter, Arial, sans-serif; }
+    .code { fill: #0f172a; font: 11px 'Fira Code', Consolas, monospace; }
+    .btn { fill: #e2e8f0; stroke: #94a3b8; stroke-width: 1; }
+    .rule { stroke: #cbd5e1; stroke-width: 1; }
+    .stage { fill: #f1f5f9; stroke: #64748b; stroke-width: 1.5; }
+    .stage-on { fill: #dbeafe; stroke: #2563eb; stroke-width: 2; }
+    .unit { fill: #ffffff; stroke: #475569; stroke-width: 1.3; }
+    .wire { stroke: #475569; stroke-width: 1.5; fill: none; }
+    .wire-hot { stroke: #2563eb; stroke-width: 2.5; fill: none; }
+    .wire-haz { stroke: #ea580c; stroke-width: 2.5; fill: none; stroke-dasharray: 6 4; }
+    .latch { fill: #ecfeff; stroke: #0891b2; stroke-width: 1.5; }
+    .hazard { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .good { fill: #ecfdf5; stroke: #10b981; stroke-width: 1; }
+    .bad { fill: #fef2f2; stroke: #ef4444; stroke-width: 1; }
+    .value { fill: #0f172a; font: 600 11px 'Fira Code', Consolas, monospace; }
+    .tag { fill: #1d4ed8; font: 600 9px Inter, Arial, sans-serif; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="1200" height="820"/>
+
+  <!-- Application bar -->
+  <rect class="bar" x="0" y="0" width="1200" height="50"/>
+  <text class="bar-text" x="18" y="31">LIMO Processor Simulator</text>
+  <rect x="300" y="12" width="190" height="26" rx="4" fill="#334155" stroke="#64748b"/>
+  <text x="310" y="30" fill="#e2e8f0" font-family="Inter, Arial, sans-serif" font-size="11">Program 4: Hazard-free</text>
+  <text x="498" y="30" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="11">v</text>
+  <text x="600" y="30" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="11">Editor | Execution</text>
+  <text x="1010" y="30" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="11">Open</text>
+  <text x="1060" y="30" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="11">Save</text>
+  <text x="1116" y="30" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="11">Theme</text>
+
+  <!-- Transport controls -->
+  <rect class="panel" x="16" y="62" width="1168" height="58" rx="6"/>
+  <rect class="btn" x="30" y="76" width="62" height="30" rx="4"/>
+  <text x="48" y="96" class="label">Step</text>
+  <rect class="btn" x="100" y="76" width="54" height="30" rx="4"/>
+  <text x="116" y="96" class="label">Run</text>
+  <rect class="btn" x="162" y="76" width="54" height="30" rx="4"/>
+  <text x="176" y="96" class="label">Pause</text>
+  <rect class="btn" x="224" y="76" width="54" height="30" rx="4"/>
+  <text x="240" y="96" class="label">Reset</text>
+  <rect class="btn" x="286" y="76" width="74" height="30" rx="4"/>
+  <text x="296" y="96" class="label">Step Back</text>
+  <text x="380" y="86" class="muted">Speed</text>
+  <rect x="380" y="92" width="90" height="14" rx="7" fill="#e2e8f0" stroke="#94a3b8"/>
+  <circle cx="438" cy="99" r="5" fill="#2563eb"/>
+  <rect class="btn" x="490" y="76" width="120" height="30" rx="4"/>
+  <text x="500" y="96" class="label">Breakpoint: line 5</text>
+  <rect x="626" y="76" width="138" height="30" rx="4" fill="#ecfdf5" stroke="#10b981"/>
+  <text x="638" y="96" class="label">Forwarding: ON</text>
+  <text x="790" y="86" class="muted">Cycle</text>
+  <text x="790" y="102" class="value">7</text>
+  <text x="846" y="86" class="muted">CPI</text>
+  <text x="846" y="102" class="value">1.44</text>
+  <text x="906" y="86" class="muted">Stalls</text>
+  <text x="906" y="102" class="value">0</text>
+  <text x="966" y="86" class="muted">Flushes</text>
+  <text x="966" y="102" class="value">0</text>
+  <text x="1040" y="86" class="muted">Clock edge</text>
+  <text x="1040" y="102" class="small">compute then latch</text>
+
+  <!-- Stage strip -->
+  <rect class="panel-soft" x="16" y="132" width="1168" height="74" rx="6"/>
+  <text x="32" y="152" class="title">Pipeline stages</text>
+  <g>
+    <rect class="stage-on" x="32" y="162" width="200" height="34" rx="4"/>
+    <text x="44" y="184" class="label">IF - Instruction Fetch</text>
+    <text x="250" y="184" class="small">i6 @0x18</text>
+    <rect class="stage" x="300" y="162" width="200" height="34" rx="4"/>
+    <text x="312" y="184" class="label">ID - Decode / Reg Read</text>
+    <text x="516" y="184" class="small">i5 kopanya_hang</text>
+    <rect class="stage-on" x="568" y="162" width="200" height="34" rx="4"/>
+    <text x="580" y="184" class="label">EX - ALU / Branch</text>
+    <text x="784" y="184" class="small">i4 kopanya -&gt; 12</text>
+    <rect class="stage" x="836" y="162" width="160" height="34" rx="4"/>
+    <text x="848" y="184" class="label">MEM - Data memory</text>
+    <rect class="stage" x="1008" y="162" width="160" height="34" rx="4"/>
+    <text x="1020" y="184" class="label">WB - Write back</text>
+  </g>
+
+  <!-- Datapath panel -->
+  <rect class="panel" x="16" y="218" width="694" height="390" rx="6"/>
+  <text x="32" y="242" class="title">Datapath with live values</text>
+  <text x="560" y="242" class="muted">PC = sebali_tsamaiso</text>
+
+  <!-- IF -->
+  <rect class="unit" x="32" y="262" width="82" height="50" rx="4"/>
+  <text x="50" y="282" class="label">PC</text>
+  <text x="44" y="300" class="value">0x00000018</text>
+  <rect class="unit" x="140" y="262" width="100" height="50" rx="4"/>
+  <text x="158" y="282" class="label">I-MEM</text>
+  <text x="150" y="300" class="muted">fetch 32-bit word</text>
+  <text x="32" y="330" class="tag">IF</text>
+
+  <!-- IF/ID latch -->
+  <rect class="latch" x="270" y="256" width="54" height="62" rx="3"/>
+  <text x="280" y="280" class="label">IF/ID</text>
+  <text x="280" y="298" class="code">i5</text>
+  <text x="280" y="312" class="muted">valid</text>
+  <path class="wire-hot" d="M222 287 H270"/>
+  <polygon points="270,287 262,282 262,292" fill="#2563eb"/>
+
+  <!-- ID -->
+  <rect class="unit" x="350" y="256" width="90" height="62" rx="4"/>
+  <text x="366" y="276" class="label">Control</text>
+  <text x="362" y="294" class="muted">decode + immediates</text>
+  <rect class="unit" x="350" y="330" width="90" height="66" rx="4"/>
+  <text x="366" y="350" class="label">RegFile</text>
+  <text x="358" y="368" class="value">r1=5 r2=7</text>
+  <text x="358" y="384" class="muted">r0 hardwired 0</text>
+  <text x="350" y="414" class="tag">ID</text>
+  <path class="wire" d="M324 287 H350"/>
+  <path class="wire" d="M395 318 V330"/>
+
+  <!-- ID/EX latch -->
+  <rect class="latch" x="470" y="270" width="58" height="80" rx="3"/>
+  <text x="480" y="290" class="label">ID/EX</text>
+  <text x="480" y="308" class="code">i4</text>
+  <text x="480" y="322" class="muted">rs1 rs2</text>
+  <text x="480" y="336" class="muted">imm ctrl</text>
+  <path class="wire-hot" d="M440 287 H470"/>
+  <polygon points="470,287 462,282 462,292" fill="#2563eb"/>
+
+  <!-- EX -->
+  <rect class="unit" x="552" y="262" width="70" height="46" rx="4"/>
+  <text x="564" y="280" class="label">ALU</text>
+  <text x="560" y="298" class="value">5 + 7 = 12</text>
+  <rect class="unit" x="552" y="320" width="70" height="46" rx="4"/>
+  <text x="564" y="338" class="label">Branch</text>
+  <text x="560" y="356" class="muted">target = pc + imm</text>
+  <text x="552" y="386" class="tag">EX</text>
+  <path class="wire" d="M528 300 H552"/>
+  <path class="wire" d="M622 285 H640"/>
+
+  <!-- EX/MEM latch -->
+  <rect class="latch" x="640" y="270" width="58" height="80" rx="3"/>
+  <text x="650" y="290" class="label">EX/MEM</text>
+  <text x="650" y="308" class="code">i3</text>
+  <text x="650" y="322" class="muted">ALU Res</text>
+  <text x="650" y="336" class="muted">writeData</text>
+
+  <!-- MEM and WB strip below -->
+  <rect class="unit" x="520" y="400" width="100" height="52" rx="4"/>
+  <text x="540" y="420" class="label">D-MEM</text>
+  <text x="532" y="438" class="muted">word aligned</text>
+  <text x="520" y="468" class="tag">MEM</text>
+  <rect class="latch" x="636" y="396" width="58" height="60" rx="3"/>
+  <text x="642" y="414" class="label">MEM/WB</text>
+  <text x="646" y="432" class="code">i2</text>
+  <text x="646" y="446" class="muted">writeBack</text>
+  <rect class="unit" x="560" y="520" width="110" height="44" rx="4"/>
+  <text x="576" y="538" class="label">WB mux</text>
+  <text x="568" y="556" class="muted">memData or ALU</text>
+  <text x="560" y="580" class="tag">WB</text>
+  <path class="wire" d="M620 426 H636"/>
+  <path class="wire" d="M665 456 V510 H615 V520"/>
+  <path class="wire" d="M570 400 V380 H640" stroke-dasharray="4 3"/>
+  <polygon points="605,380 598,375 598,385" fill="#475569"/>
+
+  <!-- Forwarding paths highlight -->
+  <path class="wire-haz" d="M669 350 V240 H587 V262"/>
+  <polygon points="587,262 582,254 592,254" fill="#ea580c"/>
+  <text x="600" y="233" fill="#9a3412" font-family="Inter, Arial, sans-serif" font-size="10" font-weight="600">ForwardA=EX_MEM (10)</text>
+  <path class="wire-haz" d="M665 456 C730 430 740 300 622 338"/>
+  <polygon points="622,338 630,333 630,343" fill="#ea580c"/>
+  <text x="736" y="392" fill="#9a3412" font-family="Inter, Arial, sans-serif" font-size="10" font-weight="600">ForwardB=MEM/WB (01)</text>
+
+  <!-- Hazard callouts on datapath -->
+  <rect class="hazard" x="32" y="470" width="300" height="82" rx="4"/>
+  <text x="44" y="490" class="label">Hazard annotations</text>
+  <text x="44" y="508" class="small">RAW: i4 reads r1, produced by i0 (distance 4) - safe.</text>
+  <text x="44" y="526" class="small">RAW: i4 reads r2, produced by i1 (distance 3) - safe.</text>
+  <text x="44" y="544" class="small">No load-use stall in this cycle. 0 stalls, 0 flushes.</text>
+
+  <rect class="hazard" x="350" y="470" width="240" height="82" rx="4"/>
+  <text x="362" y="490" class="label">Forwarding / stall tags</text>
+  <text x="362" y="508" class="small">A: MEM/WB (01) - label + text</text>
+  <text x="362" y="526" class="small">B: EX/MEM (10) - label + text</text>
+  <text x="362" y="544" class="small">Stall: none</text>
+
+  <!-- Control and hazard panel -->
+  <rect class="panel" x="722" y="218" width="462" height="390" rx="6"/>
+  <text x="738" y="242" class="title">Control-signal journey</text>
+  <line x1="738" y1="250" x2="1168" y2="250" class="rule"/>
+  <text x="738" y="268" class="label">Stage</text>
+  <text x="798" y="268" class="label">RegWrite</text>
+  <text x="862" y="268" class="label">ALUSrc</text>
+  <text x="920" y="268" class="label">ALUCtrl</text>
+  <text x="982" y="268" class="label">MemRead</text>
+  <text x="1046" y="268" class="label">MemWrite</text>
+  <text x="1110" y="268" class="label">MemToReg</text>
+  <line x1="738" y1="274" x2="1168" y2="274" class="rule"/>
+  <g font-family="'Fira Code', Consolas, monospace" font-size="11" fill="#0f172a">
+    <text x="738" y="294">IF</text><text x="798" y="294">-</text><text x="862" y="294">-</text><text x="920" y="294">-</text><text x="982" y="294">-</text><text x="1046" y="294">-</text><text x="1110" y="294">-</text>
+    <text x="738" y="316">ID</text><text x="802" y="316">1</text><text x="866" y="316">0</text><text x="920" y="316">ADD</text><text x="986" y="316">0</text><text x="1050" y="316">0</text><text x="1114" y="316">0</text>
+    <text x="738" y="338">EX</text><text x="802" y="338">1</text><text x="866" y="338">0</text><text x="920" y="338">ADD</text><text x="986" y="338">0</text><text x="1050" y="338">0</text><text x="1114" y="338">0</text>
+    <text x="738" y="360">MEM</text><text x="802" y="360">1</text><text x="866" y="360">0</text><text x="920" y="360">ADD</text><text x="986" y="360">0</text><text x="1050" y="360">0</text><text x="1114" y="360">0</text>
+    <text x="738" y="382">WB</text><text x="802" y="382">1</text><text x="866" y="382">0</text><text x="920" y="382">ADD</text><text x="986" y="382">-</text><text x="1050" y="382">-</text><text x="1114" y="382">0</text>
+  </g>
+  <text x="738" y="406" class="muted">Each signal displays 0/1 plus a one-line tooltip: "1 = allow rd write".</text>
+
+  <rect class="panel-soft" x="738" y="420" width="430" height="70" rx="4"/>
+  <text x="750" y="440" class="label">Hazard view (B5)</text>
+  <text x="750" y="458" class="small">RAW / load-use / control labels on the stage strip.</text>
+  <text x="750" y="476" class="small">Forwarding path is an arrow plus a text tag, not colour only.</text>
+
+  <rect class="panel-soft" x="738" y="500" width="430" height="92" rx="4"/>
+  <text x="750" y="520" class="label">PCSrc / branch</text>
+  <text x="750" y="538" class="small">PCSrc = 0 now. On taken branch: flush IF/ID and ID/EX,</text>
+  <text x="750" y="556" class="small">PC = EX_MEM.branchTarget, flush count += 2.</text>
+  <text x="750" y="574" class="small">Branch operands use ForwardA/ForwardB, same as ALU.</text>
+
+  <!-- Stats panel -->
+  <rect class="panel" x="16" y="622" width="694" height="182" rx="6"/>
+  <text x="32" y="646" class="title">Statistics and state</text>
+  <text x="32" y="668" class="label">Pipeline chart (one row per instruction, one column per cycle)</text>
+  <g font-size="9" font-family="Inter, Arial, sans-serif">
+    <text x="32" y="686" class="muted">i0</text><rect x="58" y="678" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="78" y="678" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="98" y="678" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="118" y="678" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="138" y="678" width="18" height="12" fill="#ecfdf5" stroke="#10b981"/>
+    <text x="32" y="704" class="muted">i1</text><rect x="78" y="696" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="98" y="696" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="118" y="696" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="138" y="696" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="158" y="696" width="18" height="12" fill="#ecfdf5" stroke="#10b981"/>
+    <text x="32" y="722" class="muted">i2</text><rect x="98" y="714" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="118" y="714" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="138" y="714" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="158" y="714" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="178" y="714" width="18" height="12" fill="#ecfdf5" stroke="#10b981"/>
+    <text x="32" y="740" class="muted">i3</text><rect x="118" y="732" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="138" y="732" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="158" y="732" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="178" y="732" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="198" y="732" width="18" height="12" fill="#ecfdf5" stroke="#10b981"/>
+    <text x="32" y="758" class="muted">i4</text><rect x="138" y="750" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="158" y="750" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="178" y="750" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="198" y="750" width="18" height="12" fill="#dbeafe" stroke="#2563eb"/><rect x="218" y="750" width="18" height="12" fill="#ecfdf5" stroke="#10b981"/>
+  </g>
+  <text x="250" y="690" class="small">Legend: IF / ID / EX / MEM / WB. A bubble cell is hatched and labelled "bubble".</text>
+  <text x="250" y="712" class="small">Totals: cycles 13, retired 9, CPI 1.44, stalls 0, flushes 0.</text>
+  <text x="250" y="734" class="small">Forwarding ON/OFF toggle must visibly change stall count and CPI.</text>
+  <rect class="panel-soft" x="32" y="770" width="660" height="24" rx="3"/>
+  <text x="42" y="786" class="muted">Register file and memory table tabs: 32 GPRs with Sesotho aliases; written memory addresses with hex + decimal.</text>
+
+  <!-- Register/memory inspector -->
+  <rect class="panel" x="722" y="622" width="462" height="182" rx="6"/>
+  <text x="738" y="646" class="title">Registers / memory / machine code</text>
+  <line x1="738" y1="654" x2="1168" y2="654" class="rule"/>
+  <text x="738" y="672" class="label">GPR</text><text x="796" y="672" class="label">Alias</text><text x="940" y="672" class="label">Value</text><text x="1080" y="672" class="label">Changed</text>
+  <g font-family="'Fira Code', Consolas, monospace" font-size="10" fill="#0f172a">
+    <text x="738" y="692">r0</text><text x="796" y="692">noto</text><text x="940" y="692">0x00000000</text><text x="1080" y="692">-</text>
+    <text x="738" y="710">r1</text><text x="796" y="710">khutla_aterese</text><text x="940" y="710">0x00000005</text><text x="1080" y="710">yes</text>
+    <text x="738" y="728">r2</text><text x="796" y="728">ts'upiso_phaello</text><text x="940" y="728">0x00000007</text><text x="1080" y="728">yes</text>
+    <text x="738" y="746">r5</text><text x="796" y="746">li_khang1</text><text x="940" y="746">0x0000000C</text><text x="1080" y="746">yes</text>
+    <text x="738" y="764">r8</text><text x="796" y="764">li_phetho0</text><text x="940" y="764">0x0000000F</text><text x="1080" y="764">yes</text>
+  </g>
+  <text x="738" y="792" class="muted">Changed rows use a text tag plus an outline, not colour alone.</text>
+
+  <!-- Narration footer -->
+  <rect class="bar" x="0" y="812" width="1200" height="8"/>
+  <rect class="panel-soft" x="16" y="744" width="0" height="0" fill="none"/>
+  <text x="16" y="812" class="muted">Freshman mode labels: English and Sesotho narration, tooltips on every block, no colour-only cues.</text>
+</svg>
