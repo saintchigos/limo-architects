@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="640" viewBox="0 0 1000 640" role="img" aria-labelledby="title desc">
+  <title id="title">LIMO editor and assembler output wireframe</title>
+  <desc id="desc">Desktop wireframe with source editor, line numbers, colour-coded assembler output in hex and binary, diagnostics, and file controls.</desc>
+  <style>
+    .bg { fill: #f5f7fa; }
+    .panel { fill: #ffffff; stroke: #334155; stroke-width: 1.5; }
+    .panel-soft { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1; }
+    .bar { fill: #1e293b; }
+    .bar-text { fill: #ffffff; font: 600 14px Inter, Arial, sans-serif; }
+    .title { fill: #0f172a; font: 600 16px Inter, Arial, sans-serif; }
+    .label { fill: #334155; font: 500 12px Inter, Arial, sans-serif; }
+    .small { fill: #475569; font: 11px Inter, Arial, sans-serif; }
+    .code { fill: #0f172a; font: 12px 'Fira Code', Consolas, monospace; }
+    .muted { fill: #64748b; font: 11px Inter, Arial, sans-serif; }
+    .accent { fill: #1d4ed8; }
+    .rule { stroke: #cbd5e1; stroke-width: 1; }
+    .btn { fill: #e2e8f0; stroke: #94a3b8; stroke-width: 1; rx: 4; }
+    .chip-op { fill: #dbeafe; stroke: #2563eb; }
+    .chip-rd { fill: #dcfce7; stroke: #16a34a; }
+    .chip-rs { fill: #fef3c7; stroke: #d97706; }
+    .chip-fn { fill: #f3e8ff; stroke: #9333ea; }
+    .chip-imm { fill: #ffe4e6; stroke: #e11d48; }
+    .warn { fill: #fff7ed; stroke: #f97316; }
+    .ok { fill: #ecfdf5; stroke: #10b981; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="1000" height="640"/>
+
+  <!-- Application bar -->
+  <rect class="bar" x="0" y="0" width="1000" height="52"/>
+  <text class="bar-text" x="18" y="32">LIMO Processor Simulator</text>
+  <rect x="335" y="13" width="185" height="26" rx="4" fill="#334155" stroke="#64748b"/>
+  <text x="345" y="31" fill="#e2e8f0" font-family="Inter, Arial, sans-serif" font-size="11">Program 1: Arithmetic</text>
+  <text x="528" y="31" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="11">v</text>
+  <rect class="btn" x="650" y="13" width="60" height="26"/>
+  <text x="670" y="31" class="label">Open</text>
+  <rect class="btn" x="718" y="13" width="60" height="26"/>
+  <text x="738" y="31" class="label">Save</text>
+  <rect x="790" y="13" width="100" height="26" rx="4" fill="#2563eb" stroke="#1d4ed8"/>
+  <text x="812" y="31" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="600">Generate</text>
+  <text x="910" y="31" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="11">Theme</text>
+
+  <!-- Workspace -->
+  <rect class="panel" x="16" y="68" width="600" height="552" rx="6"/>
+  <rect x="16" y="68" width="600" height="38" rx="6" fill="#e2e8f0"/>
+  <text x="32" y="92" class="title">Editor and assembler</text>
+  <text x="430" y="92" class="small">Source to machine code</text>
+
+  <!-- Editor toolbar -->
+  <rect class="panel-soft" x="30" y="118" width="266" height="26" rx="4"/>
+  <text x="42" y="135" class="label">Line</text>
+  <text x="78" y="135" class="label">LIMO source</text>
+  <rect class="panel-soft" x="30" y="118" width="572" height="26" fill="#f1f5f9"/>
+  <text x="42" y="135" class="small">Line</text>
+  <text x="78" y="135" class="small">LIMO source</text>
+  <text x="360" y="135" class="small">Breakpoints: click a line number</text>
+
+  <!-- Source lines -->
+  <rect x="30" y="150" width="572" height="250" fill="#ffffff" stroke="#cbd5e1"/>
+  <g class="code">
+    <text x="42" y="172">1</text><text x="70" y="172" fill="#64748b"># Program 1 - Arithmetic</text>
+    <text x="42" y="192">2</text><text x="70" y="192" fill="#64748b"># expected: r5 = 1</text>
+    <text x="42" y="212">3</text><text x="70" y="212">kopanya_hang r1, r0, 12</text>
+    <text x="42" y="232">4</text><text x="70" y="232">kopanya_hang r2, r0, 5</text>
+    <text x="42" y="252">5</text><text x="70" y="252">kopanya r3, r1, r2</text>
+    <text x="42" y="272">6</text><text x="70" y="272">tlosa r4, r1, r2</text>
+    <text x="42" y="292">7</text><text x="70" y="292">le r5, r3, r4</text>
+    <text x="42" y="312">8</text><text x="70" y="312" fill="#94a3b8"># end</text>
+  </g>
+  <line x1="30" y1="330" x2="602" y2="330" class="rule"/>
+  <text x="42" y="348" class="small">Gutter: line numbers, breakpoint dot, current PC arrow, error marker</text>
+
+  <!-- Diagnostics -->
+  <rect class="warn" x="30" y="362" width="572" height="72" rx="4"/>
+  <text x="42" y="382" class="label">Diagnostics (plain English, line-numbered)</text>
+  <text x="42" y="401" class="small">Line 6: warning - r1 is read 2 instructions after its producer; M3 will be stale until M4.</text>
+  <text x="42" y="419" class="small">Line 7: error example - unknown register 'r33'. Expected r0-r31 or a Sesotho alias.</text>
+
+  <!-- Assembler output table -->
+  <rect class="panel-soft" x="30" y="448" width="572" height="154" rx="4"/>
+  <text x="42" y="468" class="title">Machine code output</text>
+  <text x="470" y="468" class="small">Colour + text label</text>
+  <line x1="42" y1="478" x2="590" y2="478" class="rule"/>
+  <text x="42" y="494" class="small">ADDR</text>
+  <text x="94" y="494" class="small">HEX</text>
+  <text x="174" y="494" class="small">BINARY FIELDS</text>
+  <text x="470" y="494" class="small">SOURCE LINE</text>
+  <line x1="42" y1="502" x2="590" y2="502" class="rule"/>
+  <g font-family="'Fira Code', Consolas, monospace" font-size="11">
+    <text x="42" y="520" fill="#334155">0x00</text>
+    <text x="94" y="520" fill="#0f172a">00A0C2C9</text>
+    <rect class="chip-op" x="174" y="509" width="28" height="14" rx="2"/><text x="178" y="520" fill="#1e3a8a">OP</text>
+    <rect class="chip-fn" x="206" y="509" width="28" height="14" rx="2"/><text x="210" y="520" fill="#6b21a8">f3</text>
+    <rect class="chip-rd" x="238" y="509" width="34" height="14" rx="2"/><text x="242" y="520" fill="#166534">rd1</text>
+    <rect class="chip-rs" x="276" y="509" width="38" height="14" rx="2"/><text x="280" y="520" fill="#92400e">rs1</text>
+    <rect class="chip-imm" x="318" y="509" width="42" height="14" rx="2"/><text x="322" y="520" fill="#9f1239">imm</text>
+    <text x="470" y="520" fill="#475569">line 3</text>
+
+    <text x="42" y="540" fill="#334155">0x04</text>
+    <text x="94" y="540" fill="#0f172a">005082C9</text>
+    <rect class="chip-op" x="174" y="529" width="28" height="14" rx="2"/><text x="178" y="540" fill="#1e3a8a">OP</text>
+    <rect class="chip-fn" x="206" y="529" width="28" height="14" rx="2"/><text x="210" y="540" fill="#6b21a8">f3</text>
+    <rect class="chip-rd" x="238" y="529" width="34" height="14" rx="2"/><text x="242" y="540" fill="#166534">rd2</text>
+    <rect class="chip-rs" x="276" y="529" width="38" height="14" rx="2"/><text x="280" y="540" fill="#92400e">rs0</text>
+    <rect class="chip-imm" x="318" y="529" width="42" height="14" rx="2"/><text x="322" y="540" fill="#9f1239">imm</text>
+    <text x="470" y="540" fill="#475569">line 4</text>
+
+    <text x="42" y="560" fill="#334155">0x08</text>
+    <text x="94" y="560" fill="#0f172a">002081CD</text>
+    <rect class="chip-op" x="174" y="549" width="28" height="14" rx="2"/><text x="178" y="560" fill="#1e3a8a">OP</text>
+    <rect class="chip-fn" x="206" y="549" width="28" height="14" rx="2"/><text x="210" y="560" fill="#6b21a8">f3</text>
+    <rect class="chip-rd" x="238" y="549" width="34" height="14" rx="2"/><text x="242" y="560" fill="#166534">rd3</text>
+    <rect class="chip-rs" x="276" y="549" width="38" height="14" rx="2"/><text x="280" y="560" fill="#92400e">rs1</text>
+    <rect class="chip-rs" x="318" y="549" width="38" height="14" rx="2"/><text x="322" y="560" fill="#92400e">rs2</text>
+    <text x="470" y="560" fill="#475569">line 5</text>
+  </g>
+  <text x="42" y="586" class="muted">Every field carries its text label, so colour is never the only cue.</text>
+
+  <!-- Right column callouts -->
+  <rect class="panel" x="632" y="68" width="352" height="552" rx="6"/>
+  <text x="650" y="96" class="title">Assembler field legend</text>
+  <rect class="chip-op" x="650" y="112" width="54" height="22" rx="3"/>
+  <text x="664" y="127" class="small">OP</text>
+  <text x="718" y="127" class="small">opcode (7 bits)</text>
+  <rect class="chip-rd" x="650" y="144" width="54" height="22" rx="3"/>
+  <text x="664" y="159" class="small">RD</text>
+  <text x="718" y="159" class="small">destination register (5 bits)</text>
+  <rect class="chip-fn" x="650" y="176" width="54" height="22" rx="3"/>
+  <text x="664" y="191" class="small">F3</text>
+  <text x="718" y="191" class="small">funct3 (3 bits)</text>
+  <rect class="chip-rs" x="650" y="208" width="54" height="22" rx="3"/>
+  <text x="664" y="223" class="small">RS</text>
+  <text x="718" y="223" class="small">rs1, rs2 (5 bits each)</text>
+  <rect class="chip-imm" x="650" y="240" width="54" height="22" rx="3"/>
+  <text x="664" y="255" class="small">IMM</text>
+  <text x="718" y="255" class="small">sign-extended immediate</text>
+
+  <line x1="650" y1="278" x2="966" y2="278" class="rule"/>
+  <text x="650" y="300" class="title">Wireframe notes</text>
+  <text x="650" y="322" class="small">1. Source and output stay linked by line number.</text>
+  <text x="650" y="342" class="small">2. Hex is always 8 digits; binary shows field boundaries.</text>
+  <text x="650" y="362" class="small">3. Errors are text, not colour only.</text>
+  <text x="650" y="382" class="small">4. Open/Save use the browser file picker, no server.</text>
+  <text x="650" y="402" class="small">5. Field legend doubles as a tooltip on every chip.</text>
+
+  <rect class="ok" x="650" y="424" width="316" height="74" rx="4"/>
+  <text x="664" y="446" class="label">Empty and error states</text>
+  <text x="664" y="464" class="small">Empty: "Assembly ha e soe" + disabled Run/Step.</text>
+  <text x="664" y="482" class="small">Error: keep last good program loaded; mark failing line.</text>
+
+  <line x1="650" y1="516" x2="966" y2="516" class="rule"/>
+  <text x="650" y="538" class="label">Phone behaviour (380px)</text>
+  <text x="650" y="556" class="small">Stack source above output; output scrolls horizontally</text>
+  <text x="650" y="574" class="small">with a sticky address column and 44px touch targets.</text>
+  <text x="650" y="594" class="muted">See docs/wireframes/phone-380.svg and docs/WIREFRAMES.md.</text>
+</svg>

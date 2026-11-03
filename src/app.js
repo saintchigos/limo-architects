@@ -256,6 +256,7 @@ class LimoApp {
       this.mcBody.style.display = '';
       this.mcHeader.style.display = '';
       this.renderMachineCode();
+      this.loadedProgram = null;
     });
 
     // Display Type Segmented Switcher (Hex | Binary | Decimal)
@@ -330,6 +331,9 @@ class LimoApp {
     reader.onload = (evt) => {
       this.editor.value = evt.target.result;
       this.runAssemble();
+      if (this.assembledResult && this.assembledResult.success) {
+        this.loadProgram();
+      }
     };
     reader.readAsText(file);
   }
@@ -353,6 +357,10 @@ class LimoApp {
       const preloadedData = new Map(Object.entries(ex?.preloadedData ?? {}).map(([a, v]) => [Number(a), v]));
       this.engine = new LimoPipeline({ words, source, preloadedData });
       this.isHalted = false;
+      this.logTerminal(`>> [Assembler] Assembly successful: ${this.assembledResult.instructions.length} instructions bound cleanly.`);
+      if (this.sbNarrationText) { this.sbNarrationText.textContent = "Assembly e lokile. Penya ⏭ ho hatela pele."; }
+      this.renderMachineCode();
+      this.loadProgram();
     } else {
       const err = this.assembledResult.errors[0];
       const lineTag = err && err.line ? `Line ${err.line}: ` : '';
@@ -360,6 +368,10 @@ class LimoApp {
       this.logTerminal(`>> [Error] ${lineTag}${msg}`, 't-err');
       this.engine = null;
       this.isHalted = false;
+      this.logTerminal(`>> [Error] ${lineTag}${msg}`);
+      this.sbNarrationText.textContent = "Synta ea assembly e fosaahetse.";
+      this.renderMachineCode();
+      this.loadedProgram = null;
     }
     this.renderMachineCode();
   }
@@ -373,6 +385,9 @@ class LimoApp {
     if (!this.engine || this.isHalted) {
       this.setNarration('Program is halted. Press Reset (⏮) to run again.');
       return;
+    }
+    if (!this.loadedProgram && this.assembledResult && this.assembledResult.success) {
+      this.loadProgram();
     }
 
     // Snapshot before the edge (for change highlighting)
@@ -388,6 +403,15 @@ class LimoApp {
       this.setNarration(
         `Runtime error: ${runtimeError.message}`
       );
+    const instructions = this.assembledResult.instructions;
+    const programInstructions = (this.loadedProgram && this.loadedProgram.instructions && this.loadedProgram.instructions.length > 0)
+      ? this.loadedProgram.instructions
+      : instructions;
+    if (programInstructions.length === 0 || this.isHalted) return;
+
+    const currentInst = programInstructions[this.instructionIndex];
+    if (!currentInst) {
+      this.finishRun();
       return;
     }
 
@@ -607,6 +631,37 @@ class LimoApp {
       case 'WB':
         return p.wroteRegister ? `r${p.rd} <= ${this.formatValue(p.value)}` : 'no write';
       default: return '—';
+        this.cpu.writeRegister(f.rd, finalVal);
+        modifiedReg = f.rd;
+
+        this.logTerminal(
+          `   <span class="t-sub-arrow">-&gt;</span> <span class="t-reg">${currentInst.mnemonic} result: r${f.rd} (${REGISTER_INFO[f.rd].alias}) = ${this.formatValue(finalVal)}</span>`
+        );
+        document.getElementById('pipeDataWB').textContent = `r${f.rd} <= ${finalVal}`;
+      } else if (currentInst.mnemonic === 'boloka') {
+        const address = (rs1Val + f.imm) | 0;
+        this.cpu.writeMemory(address, rs2Val);
+        this.logTerminal(`   <span class="t-sub-arrow">-&gt;</span> <span class="t-reg">boloka result: Memory[${this.formatValue(address)}] = ${this.formatValue(rs2Val)}</span>`);
+        this.renderMemory();
+        document.getElementById('pipeDataWB').textContent = `Mem[${address}] <= ${rs2Val}`;
+      } else if (['lekana', 'hali_lekane', 'kholo_ho'].includes(currentInst.mnemonic)) {
+        const branchTaken = currentInst.mnemonic === 'lekana' ? rs1Val === rs2Val
+          : currentInst.mnemonic === 'hali_lekane' ? rs1Val !== rs2Val
+          : rs1Val >= rs2Val;
+        if (branchTaken) {
+          const targetAddress = currentInst.address + f.imm;
+          const targetIndex = (this.loadedProgram && this.loadedProgram.instructions ? this.loadedProgram.instructions : instructions).findIndex(inst => inst.address === targetAddress);
+          nextInstructionIndex = targetIndex === -1 ? instructions.length : targetIndex;
+        }
+        this.logTerminal(`   <span class="t-sub-arrow">-&gt;</span> ${currentInst.mnemonic}: ${branchTaken ? 'branch taken' : 'branch not taken'}`);
+        document.getElementById('pipeDataWB').textContent = branchTaken ? 'Branch taken' : 'Not taken';
+      } else {
+        this.logTerminal(`   <span class="t-sub-arrow">-&gt;</span> WB: Ha hona destination register write.`);
+        document.getElementById('pipeDataWB').textContent = `No write`;
+      }
+
+      this.instructionIndex = nextInstructionIndex;
+      if (this.instructionIndex >= (this.loadedProgram && this.loadedProgram.instructions ? this.loadedProgram.instructions.length : instructions.length)) this.finishRun();
     }
   }
 
@@ -661,6 +716,11 @@ class LimoApp {
     }
     if (!this.engine) this.runAssemble();
     if (!this.engine || this.isHalted) return;
+    if (!this.assembledResult || !this.assembledResult.success) this.runAssemble();
+    if (!this.assembledResult || !this.assembledResult.success || this.isHalted) return;
+    if (!this.loadedProgram && this.assembledResult && this.assembledResult.success) {
+      this.loadProgram();
+    }
     const button = document.getElementById('btnRun');
     button.textContent = '⏸';
     button.title = 'Pause execution';
@@ -852,6 +912,49 @@ class LimoApp {
       regBody.innerHTML = html;
     }
   }
+  loadProgram() {
+    if (!this.assembledResult || !this.assembledResult.success) {
+      this.loadedProgram = null;
+      return;
+    }
+    this.stopRun();
+    this.currentCycle = 0;
+    this.instructionIndex = 0;
+    this.isHalted = false;
+    this.cpu.reset();
+    if (this.sbCycleVal) this.sbCycleVal.textContent = '0';
+    if (this.console) {
+      this.console.innerHTML = '<div class="terminal-line dim"># Simulation e qaliloe. Program Counter e ho 0x00000000.</div>';
+    }
+    document.querySelectorAll('.pipeline-block').forEach(b => b.classList.remove('active'));
+
+    const instructions = this.assembledResult.instructions || [];
+    this.loadedProgram = {
+      instructions: instructions.map((inst, index) => ({
+        address: typeof inst.address === 'number' ? inst.address : index * 4,
+        machineCode: inst.machineCode,
+        word: inst.machineCode,
+        hex: inst.hex,
+        binary: inst.binary,
+        mnemonic: inst.mnemonic,
+        fields: inst.fields,
+        lineNumber: inst.lineNumber,
+        lineText: inst.lineText,
+        instructionDef: inst.instructionDef
+      })),
+      machineWords: this.assembledResult.machineWords || instructions.map(inst => inst.machineCode),
+      symbolTable: this.assembledResult.symbolTable || {},
+      pc: 0
+    };
+    this.cpu.pc = 0;
+    this.instructionIndex = 0;
+    this.renderRegisters();
+    this.renderMemory();
+    if (this.sbNarrationText) {
+      this.sbNarrationText.textContent = `Program loaded: ${instructions.length} instruction(s). PC = 0x00000000.`;
+    }
+    this.logTerminal(`>> [Loader] Program loaded into machine: ${instructions.length} instruction(s), PC reset to 0x00000000.`);
+  },
 
   renderMachineCode() {
     if (!this.mcBody) return;
