@@ -1,0 +1,16 @@
+# LIMO Program 4 — Hazard-Free Spacing (M3)
+# CS3520 — Computer Organisation and Architecture
+# Producers are at least 3 instructions ahead of their consumers, which the
+# WB-before-ID register-file convention resolves exactly on the M3 engine.
+# Expected final: r1=5 r2=7 r3=9 r4=11 r5=12 r6=3 r7=4 r10=6 r8=15
+# Expected: 9 instructions retired in 13 cycles, 0 branches taken.
+
+kopanya_hang r1, noto, 5     # i0: r1 = 5
+kopanya_hang r2, noto, 7     # i1: r2 = 7
+kopanya_hang r3, noto, 9     # i2: spacing filler
+kopanya_hang r4, noto, 11    # i3: spacing filler
+kopanya      r5, r1, r2      # i4: r5 = 5 + 7 = 12   (dist 4, 3)
+kopanya_hang r6, noto, 3     # i5: r6 = 3
+kopanya_hang r7, noto, 4     # i6: spacing filler
+kopanya_hang r10, noto, 6    # i7: spacing filler
+kapa         r8, r5, r6      # i8: r8 = 12 | 3 = 15  (dist 4, 3)
