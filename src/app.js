@@ -125,6 +125,7 @@ class LimoApp {
     this.assembler = new LimoAssembler();
     this.engine = null;            // LimoPipeline — single owner of mutable state
     this.assembledResult = null;
+    this.loadedProgram = null;     // Issue C: machine image + per-word source map
     this.displayFormat = 'hex';    // 'hex' | 'bin' | 'dec'
     this.isHalted = false;
     this.runTimer = null;
@@ -256,7 +257,6 @@ class LimoApp {
       this.mcBody.style.display = '';
       this.mcHeader.style.display = '';
       this.renderMachineCode();
-      this.loadedProgram = null;
     });
 
     // Display Type Segmented Switcher (Hex | Binary | Decimal)
@@ -330,10 +330,8 @@ class LimoApp {
     const reader = new FileReader();
     reader.onload = (evt) => {
       this.editor.value = evt.target.result;
+      this.resetSimulation();
       this.runAssemble();
-      if (this.assembledResult && this.assembledResult.success) {
-        this.loadProgram();
-      }
     };
     reader.readAsText(file);
   }
@@ -346,34 +344,30 @@ class LimoApp {
     this.assembledResult = this.assembler.assemble(this.editor.value);
     if (this.assembledResult.success) {
       this.logTerminal(`>> [Assembler] Assembly successful: ${this.assembledResult.instructions.length} instructions bound cleanly.`, 't-reg');
-      // Build the engine program: machine words + per-word source map.
-      const words = this.assembledResult.instructions.map(inst => inst.machineCode >>> 0);
-      const source = this.assembledResult.instructions.map(inst => ({
-        lineNumber: inst.lineNumber,
-        assemblyText: (inst.lineText || '').trim(),
-        mnemonic: inst.mnemonic,
-      }));
-      const ex = EXAMPLES[this.exampleSelect.value];
-      const preloadedData = new Map(Object.entries(ex?.preloadedData ?? {}).map(([a, v]) => [Number(a), v]));
-      this.engine = new LimoPipeline({ words, source, preloadedData });
-      this.isHalted = false;
-      this.logTerminal(`>> [Assembler] Assembly successful: ${this.assembledResult.instructions.length} instructions bound cleanly.`);
-      if (this.sbNarrationText) { this.sbNarrationText.textContent = "Assembly e lokile. Penya ⏭ ho hatela pele."; }
+      if (this.sbNarrationText) {
+        this.sbNarrationText.textContent = 'Assembly e lokile. Penya ⏭ ho hatela pele.';
+      }
       this.renderMachineCode();
+      // Bridge the two halves: load the machine words into the simulated machine.
       this.loadProgram();
     } else {
       const err = this.assembledResult.errors[0];
-      const lineTag = err && err.line ? `Line ${err.line}: ` : '';
+      const errLine = err && (err.line ?? err.lineNumber);
       const msg = err && err.message ? err.message : String(err);
+      // AssemblerError already prefixes its message with "Line N: ".
+      const lineTag = errLine != null && !/^Line \d+:/.test(msg) ? `Line ${errLine}: ` : '';
       this.logTerminal(`>> [Error] ${lineTag}${msg}`, 't-err');
+      if (this.sbNarrationText) {
+        this.sbNarrationText.textContent = 'Synta ea assembly e fosaahetse.';
+      }
+      // Errors must not start a pipeline: drop the engine and the machine image.
       this.engine = null;
-      this.isHalted = false;
-      this.logTerminal(`>> [Error] ${lineTag}${msg}`);
-      this.sbNarrationText.textContent = "Synta ea assembly e fosaahetse.";
-      this.renderMachineCode();
       this.loadedProgram = null;
+      this.isHalted = false;
+      this.renderMachineCode();
+      this.renderIdleMachine();
+      this.setStateChip('ready', 'Ready');
     }
-    this.renderMachineCode();
   }
 
   /* ------------------------------------------------------------------
@@ -381,13 +375,15 @@ class LimoApp {
    * ------------------------------------------------------------------ */
 
   stepCycle() {
-    if (!this.engine) this.runAssemble();
-    if (!this.engine || this.isHalted) {
+    if (!this.engine) {
+      // Assemble on demand. A failed assemble leaves engine === null and has
+      // already surfaced its diagnostics, so the pipeline never starts.
+      this.runAssemble();
+      if (!this.engine) return;
+    }
+    if (this.isHalted) {
       this.setNarration('Program is halted. Press Reset (⏮) to run again.');
       return;
-    }
-    if (!this.loadedProgram && this.assembledResult && this.assembledResult.success) {
-      this.loadProgram();
     }
 
     // Snapshot before the edge (for change highlighting)
@@ -400,20 +396,10 @@ class LimoApp {
     } catch (runtimeError) {
       this.stopRun();
       this.logTerminal(`>> [Runtime] ${runtimeError.message}`, 't-err');
-      this.setNarration(
-        `Runtime error: ${runtimeError.message}`
-      );
-    const instructions = this.assembledResult.instructions;
-    const programInstructions = (this.loadedProgram && this.loadedProgram.instructions && this.loadedProgram.instructions.length > 0)
-      ? this.loadedProgram.instructions
-      : instructions;
-    if (programInstructions.length === 0 || this.isHalted) return;
-
-    const currentInst = programInstructions[this.instructionIndex];
-    if (!currentInst) {
-      this.finishRun();
+      this.setNarration(`Runtime error: ${runtimeError.message}`);
       return;
     }
+    if (!result) return;
 
     // Status bar
     this.sbCycleVal.textContent = result.cycle;
@@ -631,37 +617,6 @@ class LimoApp {
       case 'WB':
         return p.wroteRegister ? `r${p.rd} <= ${this.formatValue(p.value)}` : 'no write';
       default: return '—';
-        this.cpu.writeRegister(f.rd, finalVal);
-        modifiedReg = f.rd;
-
-        this.logTerminal(
-          `   <span class="t-sub-arrow">-&gt;</span> <span class="t-reg">${currentInst.mnemonic} result: r${f.rd} (${REGISTER_INFO[f.rd].alias}) = ${this.formatValue(finalVal)}</span>`
-        );
-        document.getElementById('pipeDataWB').textContent = `r${f.rd} <= ${finalVal}`;
-      } else if (currentInst.mnemonic === 'boloka') {
-        const address = (rs1Val + f.imm) | 0;
-        this.cpu.writeMemory(address, rs2Val);
-        this.logTerminal(`   <span class="t-sub-arrow">-&gt;</span> <span class="t-reg">boloka result: Memory[${this.formatValue(address)}] = ${this.formatValue(rs2Val)}</span>`);
-        this.renderMemory();
-        document.getElementById('pipeDataWB').textContent = `Mem[${address}] <= ${rs2Val}`;
-      } else if (['lekana', 'hali_lekane', 'kholo_ho'].includes(currentInst.mnemonic)) {
-        const branchTaken = currentInst.mnemonic === 'lekana' ? rs1Val === rs2Val
-          : currentInst.mnemonic === 'hali_lekane' ? rs1Val !== rs2Val
-          : rs1Val >= rs2Val;
-        if (branchTaken) {
-          const targetAddress = currentInst.address + f.imm;
-          const targetIndex = (this.loadedProgram && this.loadedProgram.instructions ? this.loadedProgram.instructions : instructions).findIndex(inst => inst.address === targetAddress);
-          nextInstructionIndex = targetIndex === -1 ? instructions.length : targetIndex;
-        }
-        this.logTerminal(`   <span class="t-sub-arrow">-&gt;</span> ${currentInst.mnemonic}: ${branchTaken ? 'branch taken' : 'branch not taken'}`);
-        document.getElementById('pipeDataWB').textContent = branchTaken ? 'Branch taken' : 'Not taken';
-      } else {
-        this.logTerminal(`   <span class="t-sub-arrow">-&gt;</span> WB: Ha hona destination register write.`);
-        document.getElementById('pipeDataWB').textContent = `No write`;
-      }
-
-      this.instructionIndex = nextInstructionIndex;
-      if (this.instructionIndex >= (this.loadedProgram && this.loadedProgram.instructions ? this.loadedProgram.instructions.length : instructions.length)) this.finishRun();
     }
   }
 
@@ -716,11 +671,6 @@ class LimoApp {
     }
     if (!this.engine) this.runAssemble();
     if (!this.engine || this.isHalted) return;
-    if (!this.assembledResult || !this.assembledResult.success) this.runAssemble();
-    if (!this.assembledResult || !this.assembledResult.success || this.isHalted) return;
-    if (!this.loadedProgram && this.assembledResult && this.assembledResult.success) {
-      this.loadProgram();
-    }
     const button = document.getElementById('btnRun');
     button.textContent = '⏸';
     button.title = 'Pause execution';
@@ -912,49 +862,106 @@ class LimoApp {
       regBody.innerHTML = html;
     }
   }
+
+  /* ------------------------------------------------------------------
+   * Program loading (Issue C) — assembler output -> simulated machine
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Load the last successful assemble into the simulated machine.
+   *
+   * Instruction memory is the assembler's `machineWords` array; word i lives at
+   * byte address i * 4, which is exactly the assembler's `address` field. A new
+   * LimoPipeline is built for the program, and its reset() invokes
+   * CPUState.reset() so PC, the register file, data memory, counters and every
+   * pipeline latch are cleared before the first fetch at PC = 0. The per-word
+   * source map (lineNumber + assembly text) is retained so the pipeline and UI
+   * can always name the source line that is executing.
+   *
+   * @returns {boolean} true when a program was loaded, false on assemble errors.
+   */
   loadProgram() {
     if (!this.assembledResult || !this.assembledResult.success) {
       this.loadedProgram = null;
-      return;
+      return false;
     }
+
     this.stopRun();
-    this.currentCycle = 0;
-    this.instructionIndex = 0;
-    this.isHalted = false;
-    this.cpu.reset();
-    if (this.sbCycleVal) this.sbCycleVal.textContent = '0';
-    if (this.console) {
-      this.console.innerHTML = '<div class="terminal-line dim"># Simulation e qaliloe. Program Counter e ho 0x00000000.</div>';
-    }
-    document.querySelectorAll('.pipeline-block').forEach(b => b.classList.remove('active'));
 
     const instructions = this.assembledResult.instructions || [];
+    const machineWords = (this.assembledResult.machineWords || instructions.map(inst => inst.machineCode))
+      .map(word => word >>> 0);
+    const sourceMap = instructions.map((inst, index) => ({
+      address: index * 4,                 // load address == assembler address
+      lineNumber: inst.lineNumber ?? null,
+      assemblyText: (inst.lineText || '').trim(),
+      mnemonic: inst.mnemonic,
+    }));
+
+    // Fresh engine => fresh CPUState: no stale registers between runs.
+    this.engine = new LimoPipeline({
+      words: machineWords,
+      source: sourceMap,
+      preloadedData: this.preloadedDataForExample(),
+    });
+    this.engine.reset();                  // CPUState.reset() + preloaded data
+    this.engine.cpu.pc = 0;               // fetch begins at address 0
+
     this.loadedProgram = {
-      instructions: instructions.map((inst, index) => ({
-        address: typeof inst.address === 'number' ? inst.address : index * 4,
-        machineCode: inst.machineCode,
-        word: inst.machineCode,
-        hex: inst.hex,
-        binary: inst.binary,
-        mnemonic: inst.mnemonic,
-        fields: inst.fields,
-        lineNumber: inst.lineNumber,
-        lineText: inst.lineText,
-        instructionDef: inst.instructionDef
+      instructions: sourceMap.map((entry, index) => ({
+        address: entry.address,
+        machineCode: machineWords[index],
+        word: machineWords[index],
+        hex: (machineWords[index] >>> 0).toString(16).toUpperCase().padStart(8, '0'),
+        mnemonic: entry.mnemonic,
+        lineNumber: entry.lineNumber,
+        lineText: entry.assemblyText,
+        fields: instructions[index]?.fields ?? null,
       })),
-      machineWords: this.assembledResult.machineWords || instructions.map(inst => inst.machineCode),
+      machineWords,
       symbolTable: this.assembledResult.symbolTable || {},
-      pc: 0
+      pc: 0,
     };
-    this.cpu.pc = 0;
-    this.instructionIndex = 0;
-    this.renderRegisters();
-    this.renderMemory();
-    if (this.sbNarrationText) {
-      this.sbNarrationText.textContent = `Program loaded: ${instructions.length} instruction(s). PC = 0x00000000.`;
-    }
-    this.logTerminal(`>> [Loader] Program loaded into machine: ${instructions.length} instruction(s), PC reset to 0x00000000.`);
-  },
+
+    this.isHalted = false;
+    this.prevRegisters = null;
+    this.prevMemory = null;
+
+    // Render the freshly loaded machine (all-zero architectural state).
+    this.console.innerHTML = '<div class="terminal-line dim"># Simulation e qaliloe. Program Counter e ho 0x00000000.</div>';
+    this.renderIdleMachine();
+    this.setStateChip('ready', 'Ready');
+    this.logTerminal(`>> [Loader] Program loaded: ${machineWords.length} word(s) at 0x00000000; PC = 0.`, 't-reg');
+    this.setNarration(
+      `Program loaded: ${machineWords.length} instruction(s), PC = 0x00000000.`,
+      `Lenaneo le kentsoe: litaelo tse ${machineWords.length}, PC = 0x00000000.`
+    );
+    return true;
+  }
+
+  /** Clear every rendered view to the current engine state (or an empty machine). */
+  renderIdleMachine() {
+    this.sbCycleVal.textContent = '0';
+    this.sbCpiVal.textContent = '—';
+    if (this.sbRetiredVal) this.sbRetiredVal.textContent = '0';
+    if (this.sbFlushVal) this.sbFlushVal.textContent = '0';
+    document.querySelectorAll('.pipeline-block').forEach(b => {
+      b.classList.remove('active', 'bubble');
+      const data = b.querySelector('.block-data');
+      if (data) data.textContent = '—';
+    });
+    this.renderLatchConns({ IF: null, ID: null, EX: null, MEM: null, WB: null });
+    this.renderLatchInspector();
+    this.renderRegisters(new Set());
+    this.renderMemory(new Set());
+    this.renderChannelViews(new Set(), new Set());
+  }
+
+  /** Data-memory preloads declared by the selected example (empty for hand-edited code). */
+  preloadedDataForExample() {
+    const ex = EXAMPLES[this.exampleSelect.value];
+    return new Map(Object.entries(ex?.preloadedData ?? {}).map(([address, value]) => [Number(address), value]));
+  }
 
   renderMachineCode() {
     if (!this.mcBody) return;
