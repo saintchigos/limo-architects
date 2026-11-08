@@ -4,7 +4,7 @@
   "description": "LIMO pipeline simulator — CS3520 team project (Architects)",
   "type": "module",
   "scripts": {
-    "test": "node tests/assembler_test.js"
+    "test": "node tests/assembler_test.js && node tests/control_test.js && node tests/pipeline_test.js"
   },
   "license": "MIT",
   "private": true
