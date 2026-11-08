@@ -24,7 +24,7 @@ This release packages the completed M3 milestone work for the LIMO project.
 - [M3-E UI wiring](https://github.com/saintchigos/limo-architects/issues/26)
 - [M3-F hazard-free pass + M4 contract](https://github.com/saintchigos/limo-architects/issues/27)
 - [M3-G release management](https://github.com/saintchigos/limo-architects/issues/28)
-- Sprint note: [`docs/M3_SPRINT_NOTE.md`](M3_SPRINT_NOTE.md)
+- Sprint note: [`docs/M3_SPRINT_NOTE.md`](https://github.com/saintchigos/limo-architects/blob/main/docs/M3_SPRINT_NOTE.md)
 
 ### Key files
 
