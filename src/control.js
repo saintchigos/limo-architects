@@ -1,4 +1,61 @@
 /**
+ * LIMO Control Unit — ID-stage instruction decoder
+ * CS3520 — Computer Organisation and Architecture
+ * Team: Architects
+ * Milestone: M3 (Issue A)
+ *
+ * One raw 32-bit LIMO word goes in; the decoded register fields, the immediate,
+ * and the complete `ControlSignals` bundle defined in
+ * docs/PIPELINE_REGISTERS.md §2 come out. The pipeline latches those values into
+ * ID/EX, so every later stage reads one control bundle that belongs to exactly
+ * one instruction.
+ *
+ * Signal table produced here (`pcSrc` stays 0 until EX resolves a branch):
+ *
+ * | Mnemonic             | RegWrite | ALUSrc | ALUOp | MemRead | MemWrite | MemToReg | Branch | BranchType | PCSrc |
+ * |----------------------|----------|--------|-------|---------|----------|----------|--------|------------|-------|
+ * | kopanya              | rd != 0  | 0      | ADD   | 0       | 0        | 0        | 0      | null       | 0     |
+ * | tlosa                | rd != 0  | 0      | SUB   | 0       | 0        | 0        | 0      | null       | 0     |
+ * | kopanya_hang         | rd != 0  | 1      | ADD   | 0       | 0        | 0        | 0      | null       | 0     |
+ * | le                   | rd != 0  | 0      | AND   | 0       | 0        | 0        | 0      | null       | 0     |
+ * | kapa                 | rd != 0  | 0      | OR    | 0       | 0        | 0        | 0      | null       | 0     |
+ * | hase                 | rd != 0  | 0      | NOT   | 0       | 0        | 0        | 0      | null       | 0     |
+ * | checha_hang_leqeleng | rd != 0  | 1      | SLL   | 0       | 0        | 0        | 0      | null       | 0     |
+ * | bala                 | rd != 0  | 1      | ADD   | 1       | 0        | 1        | 0      | null       | 0     |
+ * | boloka               | 0        | 1      | ADD   | 0       | 1        | 0        | 0      | null       | 0     |
+ * | lekana               | 0        | 0      | ADD   | 0       | 0        | 0        | 1      | BEQ        | 0     |
+ * | hali_lekane          | 0        | 0      | ADD   | 0       | 0        | 0        | 1      | BNE        | 0     |
+ * | kholo_ho             | 0        | 0      | ADD   | 0       | 0        | 0        | 1      | BGE        | 0     |
+ *
+ * Why each control row looks the way it does:
+ *
+ * - `RegWrite` is the WB commit enable. It is forced to 0 when `rd == noto`
+ *   (r0), because a write to the hardwired zero register must have no effect.
+ *   It is also 0 for stores and branches, which produce no register result.
+ * - `ALUSrc` selects operand B in EX: 0 uses `readData2` (rs2), 1 uses the
+ *   sign-extended immediate. R-type and branches compare/combine two registers;
+ *   immediate arithmetic, shifts, loads and stores need the immediate.
+ * - `ALUOp` selects the EX operation. Loads and stores use ADD to form the
+ *   address `rs1 + imm`; branches use ADD only as a neutral value because their
+ *   comparison is performed by the branch unit from `branchType`.
+ * - `MemRead` is asserted only by `bala`, preserving the load-store ISA rule
+ *   that no other instruction reads data memory.
+ * - `MemWrite` is asserted only by `boloka`, and `RegWrite` stays 0 for it, so
+ *   store data reaches memory but never write-back.
+ * - `MemToReg` selects the WB mux: 1 takes the loaded word (`bala`), 0 takes
+ *   `aluResult` for every other register-writing instruction.
+ * - `Branch` marks the three conditional branches; `branchType` tells EX which
+ *   comparison to perform (BEQ, BNE, BGE).
+ * - `PCSrc` is a next-PC select owned by EX. ID always produces 0; EX sets it to
+ *   1 only when a branch is actually taken, selecting `branchTarget`.
+ * - The EX branch target is `(ID_EX.pc + ID_EX.immediate) >>> 0`, where
+ *   `immediate` is the sign-extended B-type offset reconstructed below. This is
+ *   "PC of the branch + sign-extended offset", not a PC-relative value added to
+ *   any later PC.
+ *
+ * Unknown opcode/funct combinations throw instead of decoding to a NOP. A NOP
+ * would silently hide a corrupt program word, which is worse than a loud fault
+ * that the UI can report together with the faulting PC.
  * LIMO Control Unit
  * CS3520 — Computer Organisation and Architecture
  * Team: Architects
@@ -43,6 +100,32 @@ import { ControlSignals } from './models.js';
 import { INSTRUCTIONS, INSTRUCTION_FORMATS, OPCODES } from './isa.js';
 
 /**
+ * Error thrown for a word that is not one of the 12 frozen LIMO instructions.
+ * Extra fields let the simulator attach/display the offending encoding.
+ */
+export class IllegalInstructionError extends Error {
+  /**
+   * @param {number} word Raw 32-bit word that failed to decode.
+   * @param {{ opcode: number, funct3: number, funct7: number }} fields Decoded bit-fields.
+   */
+  constructor(word, { opcode, funct3, funct7 }) {
+    super(
+      `Illegal instruction word 0x${(word >>> 0).toString(16).toUpperCase().padStart(8, '0')}: ` +
+      `no LIMO instruction matches opcode 0b${opcode.toString(2).padStart(7, '0')}, ` +
+      `funct3 0b${funct3.toString(2).padStart(3, '0')}, ` +
+      `funct7 0b${funct7.toString(2).padStart(7, '0')}`
+    );
+    this.name = 'IllegalInstructionError';
+    this.word = word >>> 0;
+    this.opcode = opcode;
+    this.funct3 = funct3;
+    this.funct7 = funct7;
+  }
+}
+
+/**
+ * Sign-extend a 12-bit immediate to a signed 32-bit JavaScript number.
+ * I-type and S-type immediates are 12 bits (docs/LIMO_ISA_Specification.md A5).
  * Sign-extend a 12-bit immediate to a signed 32-bit JavaScript number.
  * I-type and S-type immediates are 12 bits wide (docs/LIMO_ISA_Specification.md A5).
  *
@@ -50,12 +133,20 @@ import { INSTRUCTIONS, INSTRUCTION_FORMATS, OPCODES } from './isa.js';
  * @returns {number} Signed value in the range -2048…2047.
  */
 export function signExtend12(bits) {
+  const value = bits & 0xFFF;
+  return (value & 0x800) ? value - 0x1000 : value;
   return (bits & 0x800) ? bits - 0x1000 : bits;
 }
 
 /**
  * Reconstruct and sign-extend the 13-bit B-type byte offset.
  *
+ * Frozen B-type layout (docs/LIMO_ISA_Specification.md A5):
+ *   [imm[12] | imm[10:5] | rs2 | rs1 | funct3 | imm[4:1] | imm[11] | opcode]
+ *
+ * Bit 0 is implicitly zero because instructions and branch targets are
+ * word-aligned. The returned value is the offset EX adds to the branch PC:
+ * `branchTarget = (ID_EX.pc + offset) >>> 0`.
  * B-type layout (docs/LIMO_ISA_Specification.md A5):
  *   [imm[12] | imm[10:5] | rs2 | rs1 | funct3 | imm[4:1] | imm[11] | opcode]
  * Bit 0 is implicit zero because every LIMO instruction is word-aligned.
@@ -76,6 +167,8 @@ export function extractBImmediate(word) {
 }
 
 /**
+ * Extract the sign-extended immediate for a word without decoding controls.
+ * IF uses this to fill `IF/ID.immediate` (docs/PIPELINE_REGISTERS.md §3).
  * Extract the sign-extended immediate for an instruction without decoding its
  * control signals. IF uses this to fill the `IF/ID.immediate` diagnostic view
  * required by docs/PIPELINE_REGISTERS.md §3.
@@ -86,6 +179,16 @@ export function extractBImmediate(word) {
  */
 export function decodeImmediate(word, opcode) {
   const w = word >>> 0;
+  if (opcode === OPCODES.I) {
+    return signExtend12((w >>> 20) & 0xFFF);
+  }
+  if (opcode === OPCODES.S) {
+    const imm12 = (((w >>> 25) & 0x7F) << 5) | ((w >>> 7) & 0x1F);
+    return signExtend12(imm12);
+  }
+  if (opcode === OPCODES.B) {
+    return extractBImmediate(w);
+  }
   if (opcode === OPCODES.I || opcode === OPCODES.S) {
     const imm12 = opcode === OPCODES.I
       ? (w >>> 20) & 0xFFF
@@ -97,6 +200,16 @@ export function decodeImmediate(word, opcode) {
 }
 
 /**
+ * Match the frozen ISA table in src/isa.js.
+ *
+ * Matching requires opcode plus funct3 and, for R-type, funct7. Non-R formats
+ * use funct3 because their upper 7 bits are part of the immediate, not a
+ * function selector.
+ *
+ * @param {number} opcode 7-bit opcode.
+ * @param {number} funct3 3-bit function field.
+ * @param {number} funct7 7-bit function field.
+ * @returns {{ mnemonic: string, def: object } | null} Match, or null when illegal.
  * Match the frozen ISA table in src/isa.js. Matching on opcode plus funct3 and
  * (for R-type) funct7 means an unknown or malformed word is never guessed into
  * a real instruction.
@@ -122,6 +235,11 @@ function matchInstruction(opcode, funct3, funct7) {
  * Decode one 32-bit LIMO instruction word into the fields and control bundle
  * consumed by the pipeline.
  *
+ * Unused fields are normalised to zero so the future hazard unit cannot mistake
+ * immediate bits for real operands:
+ * - S-type and B-type have no `rd`, so `rd` is 0.
+ * - I-type has no `rs2`, so `rs2` is 0.
+ * - `hase` ignores its `rs2` field (the assembler encodes r0), so `rs2` is 0.
  * The decoder deliberately throws for an unknown word instead of returning a
  * NOP: silently treating an illegal encoding as a bubble would hide a corrupt
  * program. The pipeline adds the faulting PC before rethrowing (Issue A:
@@ -146,6 +264,8 @@ function matchInstruction(opcode, funct3, funct7) {
  *   immediate: number,
  *   ctrl: ControlSignals,
  *   instructionDef: object
+ * }} Decoded fields plus a fresh control bundle.
+ * @throws {IllegalInstructionError} When the encoding is not one of the 12 LIMO instructions.
  * }}
  * @throws {Error} When the opcode/funct combination is not one of the 12 LIMO instructions.
  */
@@ -160,6 +280,7 @@ export function decodeWord(word) {
 
   const match = matchInstruction(opcode, funct3, funct7);
   if (!match) {
+    throw new IllegalInstructionError(w, { opcode, funct3, funct7 });
     const error = new Error(
       `Illegal instruction word 0x${w.toString(16).toUpperCase().padStart(8, '0')}: ` +
       `no LIMO instruction matches opcode 0b${opcode.toString(2).padStart(7, '0')}, ` +
@@ -173,6 +294,16 @@ export function decodeWord(word) {
 
   const { mnemonic, def } = match;
   const format = def.format;
+
+  // `checha_hang_leqeleng` requires imm[11:5] = 0000000; only shamt (imm[4:0])
+  // is meaningful. Rejecting a non-zero upper field keeps the decoder from
+  // silently accepting an encoding the frozen ISA does not define.
+  if (mnemonic === 'checha_hang_leqeleng' && funct7 !== 0) {
+    throw new IllegalInstructionError(w, { opcode, funct3, funct7 });
+  }
+
+  const rd = (format === INSTRUCTION_FORMATS.S || format === INSTRUCTION_FORMATS.B) ? 0 : rawRd;
+  const rs2 = (format === INSTRUCTION_FORMATS.I || mnemonic === 'hase') ? 0 : rawRs2;
   const rd = (format === INSTRUCTION_FORMATS.S || format === INSTRUCTION_FORMATS.B) ? 0 : rawRd;
   const rs2 = (format === INSTRUCTION_FORMATS.I) ? 0 : rawRs2;
   const immediate = decodeImmediate(w, opcode);
@@ -190,6 +321,8 @@ export function decodeWord(word) {
   };
 
   switch (format) {
+    case INSTRUCTION_FORMATS.R:
+      // Register-register operations read both operands; NOT ignores rs2.
     case INSTRUCTION_FORMATS.R: {
       // R-type reads both register operands; hase ignores rs2 (NOT uses rs1 only).
       signals.aluOp = {
@@ -202,6 +335,10 @@ export function decodeWord(word) {
       signals.aluSrc = 0;
       signals.regWrite = rd !== 0 ? 1 : 0;
       break;
+
+    case INSTRUCTION_FORMATS.I:
+      // Immediate arithmetic, shifts and loads all take operand B from the
+      // sign-extended immediate.
     }
 
     case INSTRUCTION_FORMATS.I: {
@@ -219,6 +356,9 @@ export function decodeWord(word) {
         signals.aluOp = 'ADD';
       }
       break;
+
+    case INSTRUCTION_FORMATS.S:
+      // Store: rs2 is the data written to memory; no register write-back.
     }
 
     case INSTRUCTION_FORMATS.S: {
@@ -228,6 +368,9 @@ export function decodeWord(word) {
       signals.regWrite = 0;
       signals.memWrite = 1;
       break;
+
+    case INSTRUCTION_FORMATS.B:
+      // Branch: EX compares rs1/rs2 and computes pc + immediate.
     }
 
     case INSTRUCTION_FORMATS.B: {
@@ -261,5 +404,19 @@ export function decodeWord(word) {
     instructionDef: def
   };
 }
+
+/**
+ * Decode a word and return only its control bundle.
+ * Convenience wrapper for callers that already have the raw fields.
+ *
+ * @param {number} word Raw 32-bit LIMO instruction word.
+ * @returns {ControlSignals} Decoded control signals.
+ */
+export function decodeControl(word) {
+  return decodeWord(word).ctrl;
+}
+
+/** Alias retained for callers that prefer the instruction-oriented name. */
+export const decodeInstruction = decodeWord;
 
 export default decodeWord;
